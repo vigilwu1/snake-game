@@ -55,13 +55,56 @@
     .food-dot { width:8px; height:8px; border-radius:50%; display:inline-block; background:#ff9678; margin-right:6px; }
     .tip { padding:8px 5px; font-size:12px; color:var(--muted); }
     .tip strong { color:var(--lime); font-weight:500; }
+    .mobile-toolbar { display:block; }
+    .difficulty-control { min-width:0; }
     .dpad { display:grid; grid-template-columns:repeat(3,48px); grid-template-rows:repeat(2,42px); justify-content:center; gap:7px; margin:18px 0 0; }
     .dpad button { border:1px solid #42503b; border-radius:8px; background:#222d22; color:var(--text); font-size:21px; touch-action:manipulation; }
     .dpad button:active { background:#4a6132; }
     .up { grid-column:2; }.left { grid-row:2; grid-column:1; }.down { grid-row:2; grid-column:2; }.right { grid-row:2; grid-column:3; }
     footer { display:flex; justify-content:space-between; padding:27px 0; color:#7e8d78; font:10px ui-monospace,monospace; letter-spacing:1px; }
     @media(max-width:800px) { main { grid-template-columns:1fr; }.sidebar { display:grid; grid-template-columns:1fr 1fr; gap:14px; }.card { margin:0; }.tip { display:none; }.intro { padding-top:26px; }.intro p { font-size:12px; } }
-    @media(max-width:480px) { .wrap { width:calc(100% - 24px); } header { padding:19px 0; }.edition { font-size:9px; letter-spacing:1px; }.intro { display:block; }.intro p { margin-top:10px; }.scorebar { padding:14px 18px; gap:22px; }.score { font-size:24px; }.board { margin:0 8px; }.sidebar { grid-template-columns:1fr; }.card { padding:18px; }.instructions { display:none; } footer span:last-child { display:none; } }
+    @media(max-width:600px) {
+      html,body { width:100%; height:100%; overflow:hidden; overscroll-behavior:none; }
+      body { -webkit-tap-highlight-color:transparent; }
+      .wrap { width:100%; max-width:none; height:100vh; height:100dvh; margin:0; padding:8px 8px max(8px,env(safe-area-inset-bottom)); display:flex; flex-direction:column; overflow:hidden; }
+      header,.intro,footer { display:none; }
+      main { flex:1; min-height:0; grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr) auto; gap:8px; align-items:stretch; }
+      .arena { min-height:0; border-radius:14px; display:grid; grid-template-rows:auto minmax(0,1fr) auto; padding:0; }
+      .scorebar { padding:7px 12px; gap:18px; }
+      .score-label { font-size:9px; letter-spacing:.5px; }
+      .score { font-size:clamp(18px,5vw,22px); }
+      .status { font-size:10px; gap:5px; }
+      .status::before { width:5px; height:5px; }
+      .board { width:min(calc(100vw - 20px),calc(100dvh - 300px)); max-width:100%; max-height:100%; margin:0; justify-self:center; align-self:center; }
+      .arena-bottom { padding:6px 10px; font-size:8px; letter-spacing:.3px; }
+      .sidebar { display:contents; }
+      .sidebar > .card:first-child { margin:0; padding:8px 10px 10px; border-radius:12px; display:grid; grid-template-columns:minmax(0,1fr); gap:6px; }
+      .card h3 { display:none; }
+      .mobile-toolbar { display:grid; grid-template-columns:minmax(112px,.8fr) minmax(0,1fr); gap:8px; align-items:end; }
+      .difficulty-control label { display:none; }
+      select { height:38px; margin:0; padding:6px 8px; font-size:11px; }
+      .actions { gap:6px; }
+      .secondary { min-height:38px; padding:6px 2px; font-size:11px; }
+      .dpad { grid-template-columns:repeat(3,50px); grid-template-rows:repeat(2,48px); gap:5px; margin:0 auto; }
+      .dpad button { min-width:50px; min-height:48px; border-radius:12px; font-size:23px; }
+      .instructions,.tip { display:none; }
+    }
+    @media(max-width:360px) {
+      .board { width:min(calc(100vw - 18px),calc(100dvh - 280px)); }
+      .dpad { grid-template-columns:repeat(3,46px); grid-template-rows:repeat(2,46px); gap:4px; }
+      .dpad button { min-width:46px; min-height:46px; }
+      .mobile-toolbar { grid-template-columns:minmax(100px,.8fr) minmax(0,1fr); gap:5px; }
+      .secondary { font-size:10px; }
+    }
+    @media(max-width:800px) and (max-height:500px) and (orientation:landscape) {
+      .wrap { padding:6px 8px; }
+      main { grid-template-columns:minmax(0,1fr) 176px; grid-template-rows:minmax(0,1fr); gap:8px; }
+      .board { width:min(calc(100vw - 220px),calc(100dvh - 30px)); }
+      .sidebar > .card:first-child { align-content:center; }
+      .mobile-toolbar { grid-template-columns:minmax(0,1fr); }
+      .dpad { grid-template-rows:repeat(2,42px); grid-template-columns:repeat(3,44px); }
+      .dpad button { min-width:44px; min-height:42px; }
+    }
     @media(prefers-reduced-motion:reduce) { * { transition:none!important; } }
   </style>
 </head>
@@ -91,9 +134,10 @@
       <aside class="sidebar">
         <section class="card">
           <h3>游戏控制 <span aria-hidden="true">↗</span></h3>
-          <label for="difficulty">选择节奏</label>
-          <select id="difficulty"><option value="180">慢慢来 · 休闲</option><option value="125" selected>刚刚好 · 标准</option><option value="80">冲一把 · 挑战</option></select>
-          <div class="actions"><button class="secondary" id="pause" disabled>Ⅱ 暂停</button><button class="secondary" id="restart">↻ 重新开始</button></div>
+          <div class="mobile-toolbar">
+            <div class="difficulty-control"><label for="difficulty">选择节奏</label><select id="difficulty"><option value="180">慢慢来 · 休闲</option><option value="125" selected>刚刚好 · 标准</option><option value="80">冲一把 · 挑战</option></select></div>
+            <div class="actions"><button class="secondary" id="pause" disabled>Ⅱ 暂停</button><button class="secondary" id="restart">↻ 重新开始</button></div>
+          </div>
           <div class="dpad" aria-label="方向控制">
             <button class="up" data-dir="up" aria-label="向上">↑</button><button class="left" data-dir="left" aria-label="向左">←</button><button class="down" data-dir="down" aria-label="向下">↓</button><button class="right" data-dir="right" aria-label="向右">→</button>
           </div>
