@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101611">
+  <title>贪吃蛇 · SNAKE CLUB</title>
+  <style>
+    :root { color-scheme: dark; --bg:#101611; --panel:#18201a; --line:#303d31; --lime:#c5f477; --text:#f1f4ea; --muted:#9aa795; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font:15px/1.6 system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; }
+    button,select { font:inherit; }
+    button { cursor:pointer; }
+    button:focus-visible,select:focus-visible { outline:3px solid var(--lime); outline-offset:4px; }
+    button:disabled { opacity:.4; cursor:not-allowed; }
+    .wrap { width:min(1080px,100% - 48px); margin:0 auto; }
+    header { display:flex; align-items:center; justify-content:space-between; padding:27px 0; border-bottom:1px solid var(--line); }
+    .brand { font-size:18px; font-weight:850; letter-spacing:2px; display:flex; align-items:center; gap:12px; }
+    .brand-icon { width:25px; height:25px; border:6px solid var(--lime); border-right-color:transparent; border-radius:6px; transform:rotate(-15deg); }
+    .edition { color:var(--muted); font:11px ui-monospace,monospace; letter-spacing:2px; }
+    .intro { display:flex; justify-content:space-between; align-items:end; gap:20px; padding:38px 0 25px; }
+    .eyebrow { font:11px ui-monospace,monospace; color:var(--lime); letter-spacing:3px; }
+    h1 { margin:5px 0 0; font-size:clamp(31px,5vw,43px); letter-spacing:-1.5px; line-height:1.3; }
+    .intro p { color:var(--muted); margin:0 0 4px; }
+    main { display:grid; grid-template-columns:minmax(0,1fr) 280px; gap:24px; align-items:start; }
+    .arena { border:1px solid var(--line); border-radius:18px; overflow:hidden; background:var(--panel); }
+    .scorebar { display:flex; padding:19px 23px; gap:30px; align-items:center; }
+    .score-label { color:var(--muted); font-size:11px; letter-spacing:1px; }
+    .score { font:600 28px/1.3 ui-monospace,monospace; }
+    .best .score { color:var(--lime); }
+    .status { margin-left:auto; font-size:12px; color:var(--muted); display:flex; gap:7px; align-items:center; }
+    .status::before { content:""; width:6px; height:6px; background:var(--lime); border-radius:50%; }
+    .board { position:relative; margin:0 14px; aspect-ratio:1; background:#111a13; border:1px solid #35432e; border-radius:9px; overflow:hidden; touch-action:none; }
+    canvas { display:block; width:100%; height:100%; }
+    .overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; background:#10180fbe; backdrop-filter:blur(3px); padding:20px; }
+    .overlay[hidden] { display:none; }
+    .badge { display:grid; place-items:center; background:var(--lime); width:58px; height:58px; color:#172411; border-radius:16px; font-size:30px; margin-bottom:16px; }
+    h2 { margin:0; font-size:29px; letter-spacing:-1px; }
+    .overlay p { color:#b7c3ae; margin:7px 0 23px; }
+    .primary { border:0; border-radius:9px; background:var(--lime); color:#1a2811; font-weight:750; padding:12px 25px; transition:background .2s,transform .2s; }
+    .primary:hover { background:#d6ff97; transform:translateY(-1px); }
+    .hint { color:var(--muted); font-size:11px; margin-top:15px; }
+    .arena-bottom { display:flex; justify-content:space-between; color:var(--muted); padding:12px 19px; font:10px ui-monospace,monospace; letter-spacing:1px; }
+    .card { padding:23px; border:1px solid var(--line); border-radius:16px; margin-bottom:16px; background:var(--panel); }
+    .card h3 { font-size:14px; margin:0 0 17px; font-weight:650; }
+    label { display:block; color:var(--muted); font-size:12px; margin-bottom:7px; }
+    select { width:100%; padding:10px; border:1px solid #42503b; border-radius:8px; background:#111a13; color:var(--text); margin-bottom:16px; }
+    .actions { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+    .secondary { border:1px solid #42503b; color:var(--text); background:transparent; border-radius:8px; padding:9px 0; font-size:12px; }
+    .secondary:hover:not(:disabled) { background:#263222; }
+    .key-row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:12px; color:var(--muted); font-size:12px; }
+    kbd { display:inline-block; min-width:24px; text-align:center; border:1px solid #42503b; border-bottom-width:3px; border-radius:5px; background:#222d22; color:#d6dfd0; padding:1px 6px; font:11px/1.7 ui-monospace,monospace; }
+    .rule { margin:0; color:var(--muted); font-size:12px; }
+    .rule + .rule { margin-top:11px; }
+    .food-dot { width:8px; height:8px; border-radius:50%; display:inline-block; background:#ff9678; margin-right:6px; }
+    .tip { padding:8px 5px; font-size:12px; color:var(--muted); }
+    .tip strong { color:var(--lime); font-weight:500; }
+    .dpad { display:grid; grid-template-columns:repeat(3,48px); grid-template-rows:repeat(2,42px); justify-content:center; gap:7px; margin:18px 0 0; }
+    .dpad button { border:1px solid #42503b; border-radius:8px; background:#222d22; color:var(--text); font-size:21px; touch-action:manipulation; }
+    .dpad button:active { background:#4a6132; }
+    .up { grid-column:2; }.left { grid-row:2; grid-column:1; }.down { grid-row:2; grid-column:2; }.right { grid-row:2; grid-column:3; }
+    footer { display:flex; justify-content:space-between; padding:27px 0; color:#7e8d78; font:10px ui-monospace,monospace; letter-spacing:1px; }
+    @media(max-width:800px) { main { grid-template-columns:1fr; }.sidebar { display:grid; grid-template-columns:1fr 1fr; gap:14px; }.card { margin:0; }.tip { display:none; }.intro { padding-top:26px; }.intro p { font-size:12px; } }
+    @media(max-width:480px) { .wrap { width:calc(100% - 24px); } header { padding:19px 0; }.edition { font-size:9px; letter-spacing:1px; }.intro { display:block; }.intro p { margin-top:10px; }.scorebar { padding:14px 18px; gap:22px; }.score { font-size:24px; }.board { margin:0 8px; }.sidebar { grid-template-columns:1fr; }.card { padding:18px; }.instructions { display:none; } footer span:last-child { display:none; } }
+    @media(prefers-reduced-motion:reduce) { * { transition:none!important; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header><div class="brand"><span class="brand-icon" aria-hidden="true"></span>SNAKE CLUB</div><span class="edition">NO. 001 / 小游戏俱乐部</span></header>
+    <div class="intro"><div><span class="eyebrow">ONE MORE BITE.</span><h1>再吃一口。</h1></div><p>经典贪吃蛇，简单玩一会儿。</p></div>
+    <main>
+      <section class="arena" aria-label="贪吃蛇游戏">
+        <div class="scorebar">
+          <div><div class="score-label">本局得分</div><div class="score" id="score">000</div></div>
+          <div class="best"><div class="score-label">最高纪录</div><div class="score" id="best">000</div></div>
+          <span class="status" id="status">准备就绪</span>
+        </div>
+        <div class="board" id="board">
+          <canvas id="canvas" width="600" height="600" role="img" aria-label="贪吃蛇棋盘，使用方向键或下方触控按钮移动"></canvas>
+          <div class="overlay" id="overlay">
+            <div class="badge" id="badge" aria-hidden="true">↗</div>
+            <h2 id="overlayTitle">准备好开吃了吗？</h2>
+            <p id="overlayText">吃掉小橘点，让快乐长一点。</p>
+            <button class="primary" id="play">开始游戏 &nbsp; →</button>
+            <span class="hint" id="overlayHint">按 Enter 开始 · 方向键移动</span>
+          </div>
+        </div>
+        <div class="arena-bottom"><span>20 × 20 / CLASSIC MODE</span><span>保持专注，别咬到自己。</span></div>
+      </section>
+      <aside class="sidebar">
+        <section class="card">
+          <h3>游戏控制 <span aria-hidden="true">↗</span></h3>
+          <label for="difficulty">选择节奏</label>
+          <select id="difficulty"><option value="180">慢慢来 · 休闲</option><option value="125" selected>刚刚好 · 标准</option><option value="80">冲一把 · 挑战</option></select>
+          <div class="actions"><button class="secondary" id="pause" disabled>Ⅱ 暂停</button><button class="secondary" id="restart">↻ 重新开始</button></div>
+          <div class="dpad" aria-label="方向控制">
+            <button class="up" data-dir="up" aria-label="向上">↑</button><button class="left" data-dir="left" aria-label="向左">←</button><button class="down" data-dir="down" aria-label="向下">↓</button><button class="right" data-dir="right" aria-label="向右">→</button>
+          </div>
+        </section>
+        <section class="card instructions">
+          <h3>一看就会</h3>
+          <p class="rule"><span class="food-dot"></span>吃到食物 +10 分，身体变长。</p>
+          <p class="rule">撞到墙壁或自己，本局结束。</p>
+          <div class="key-row"><span>移动</span><span><kbd>↑↓←→</kbd> / <kbd>WASD</kbd></span></div>
+          <div class="key-row"><span>暂停 / 继续</span><kbd>Space</kbd></div>
+          <div class="key-row"><span>重新开始</span><kbd>R</kbd></div>
+        </section>
+        <div class="tip"><strong>小提示 /</strong> 手机也能玩：滑动棋盘或点击方向按钮。最高纪录保存在当前浏览器。</div>
+      </aside>
+    </main>
+    <footer><span>JUST A LITTLE BREAK. HAVE A GOOD GAME.</span><span>无需联网 · 随时开玩</span></footer>
+    <div id="announcement" role="status" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"></div>
+  </div>
+  <script>
+    (() => {
+      'use strict';
+      const $ = id => document.getElementById(id);
+      const canvas = $('canvas'), ctx = canvas.getContext('2d'), size = 20;
+      const directions = { up:{x:0,y:-1}, down:{x:0,y:1}, left:{x:-1,y:0}, right:{x:1,y:0} };
+      let snake, food, direction, turns, score, best = 0, state = 'ready';
+      let lastTime = 0, elapsed = 0;
+      try { best = Math.max(0, Number(localStorage.getItem('snake-club-best')) || 0); } catch (_) {}
+      const format = n => String(n).padStart(3, '0');
+      $('best').textContent = format(best);
+
+      function placeFood() {
+        const free = [];
+        for (let y=0;y<size;y++) for (let x=0;x<size;x++) {
+          if (!snake.some(s => s.x===x && s.y===y)) free.push({x,y});
+        }
+        food = free.length ? free[Math.floor(Math.random()*free.length)] : null;
+      }
+      function reset() {
+        snake = [{x:7,y:10},{x:6,y:10},{x:5,y:10},{x:4,y:10}];
+        direction = directions.right; turns = []; score = 0; elapsed = 0; lastTime = 0;
+        $('score').textContent = format(score); placeFood();
+      }
+      function updateControls() {
+        $('status').textContent = {ready:'准备就绪',running:'正在开吃',paused:'休息一下',over:'本局结束',won:'完美通关'}[state];
+        $('pause').disabled = state!=='running' && state!=='paused';
+        $('pause').textContent = state==='paused' ? '▶ 继续' : 'Ⅱ 暂停';
+        $('difficulty').disabled = state==='running' || state==='paused';
+      }
+      function showOverlay(title, text, button, badge, hint) {
+        $('overlayTitle').textContent = title; $('overlayText').textContent = text;
+        $('play').textContent = button; $('badge').textContent = badge;
+        $('overlayHint').textContent = hint; $('overlay').hidden = false;
+        $('announcement').textContent = title + ' ' + text;
+      }
+      function start() {
+        reset(); state = 'running'; $('overlay').hidden = true; updateControls(); draw();
+      }
+      function pause() {
+        if (state==='running') {
+          state = 'paused'; showOverlay('休息一下。','小蛇也在等你回来。','继续游戏 →','Ⅱ','按空格或 Enter 继续');
+        } else if (state==='paused') {
+          state = 'running'; elapsed = 0; lastTime = 0; $('overlay').hidden = true;
+        }
+        updateControls();
+      }
+      function finish(won=false) {
+        state = won ? 'won' : 'over'; updateControls();
+        showOverlay(won?'棋盘被你承包了！':'差一点，再来一局。',`本局得分 ${score} · 最高纪录 ${best}`, '再玩一次 →',won?'★':'↻','按 Enter 或 R 重新开始');
+      }
+      function turn(name) {
+        if (state!=='running' || turns.length>=2) return;
+        const next = directions[name], previous = turns.length ? turns[turns.length-1] : direction;
+        if ((next.x===previous.x && next.y===previous.y) || (next.x===-previous.x && next.y===-previous.y)) return;
+        turns.push(next);
+      }
+      function tick() {
+        if (turns.length) direction = turns.shift();
+        const head = {x:snake[0].x+direction.x,y:snake[0].y+direction.y};
+        const eating = food && head.x===food.x && head.y===food.y;
+        const body = eating ? snake : snake.slice(0,-1);
+        if (head.x<0 || head.y<0 || head.x>=size || head.y>=size || body.some(s=>s.x===head.x && s.y===head.y)) { finish(); return; }
+        snake.unshift(head);
+        if (eating) {
+          score += 10; $('score').textContent = format(score);
+          if (score>best) { best = score; $('best').textContent = format(best); try { localStorage.setItem('snake-club-best',String(best)); } catch (_) {} }
+          placeFood(); if (!food) finish(true);
+        } else snake.pop();
+      }
+      function rounded(x,y,w,h,r,color) {
+        ctx.fillStyle=color; ctx.beginPath(); ctx.roundRect(x,y,w,h,r); ctx.fill();
+      }
+      function draw() {
+        const width = canvas.width, cell = width/size;
+        ctx.clearRect(0,0,width,width); ctx.fillStyle = '#111a13'; ctx.fillRect(0,0,width,width);
+        ctx.strokeStyle = '#1e2a1d'; ctx.lineWidth = Math.max(1,width/650);
+        for (let i=1;i<size;i++) { ctx.beginPath(); ctx.moveTo(i*cell,0); ctx.lineTo(i*cell,width); ctx.moveTo(0,i*cell); ctx.lineTo(width,i*cell); ctx.stroke(); }
+        if (food) {
+          const x=(food.x+.5)*cell,y=(food.y+.5)*cell;
+          ctx.shadowColor='#ff9678'; ctx.shadowBlur=cell*.55; ctx.fillStyle='#ff9678';
+          ctx.beginPath(); ctx.arc(x,y,cell*.28,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0;
+          ctx.fillStyle='#ffe3bd'; ctx.beginPath(); ctx.arc(x-cell*.07,y-cell*.08,cell*.07,0,Math.PI*2); ctx.fill();
+        }
+        snake.forEach((s,i)=>rounded(s.x*cell+cell*.08,s.y*cell+cell*.08,cell*.84,cell*.84,cell*.22,i===0?'#d9ff9e':i%2?'#aad765':'#b8e773'));
+        const h=snake[0], cx=(h.x+.5)*cell,cy=(h.y+.5)*cell;
+        const forward={x:direction.x*cell*.19,y:direction.y*cell*.19};
+        const side={x:-direction.y*cell*.19,y:direction.x*cell*.19};
+        ctx.fillStyle='#23351a';
+        [-1,1].forEach(sign=>{ctx.beginPath();ctx.arc(cx+forward.x+side.x*sign,cy+forward.y+side.y*sign,cell*.065,0,Math.PI*2);ctx.fill();});
+      }
+      function frame(time) {
+        if (state==='running') {
+          if (lastTime) elapsed += Math.min(time-lastTime,250);
+          const interval = Number($('difficulty').value);
+          while (elapsed>=interval && state==='running') { elapsed -= interval; tick(); }
+          draw();
+        }
+        lastTime=time; requestAnimationFrame(frame);
+      }
+      $('play').addEventListener('click',()=>state==='paused'?pause():start());
+      $('pause').addEventListener('click',pause);
+      $('restart').addEventListener('click',start);
+      document.querySelectorAll('[data-dir]').forEach(button=>{
+        button.addEventListener('pointerdown',event=>{event.preventDefault();turn(button.dataset.dir);});
+        button.addEventListener('click',event=>{if(event.detail===0)turn(button.dataset.dir);});
+      });
+      const keys = {ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',w:'up',s:'down',a:'left',d:'right'};
+      document.addEventListener('keydown',event=>{
+        if (event.ctrlKey || event.metaKey || event.altKey || event.target.matches('select,input,textarea')) return;
+        const key = event.key.length===1 ? event.key.toLowerCase() : event.key;
+        if (keys[key]) { event.preventDefault(); turn(keys[key]); }
+        else if (event.code==='Space') { if(event.target.closest('button')) return; event.preventDefault(); if(!event.repeat) pause(); }
+        else if (key==='r' && !event.repeat) { event.preventDefault(); start(); }
+        else if (key==='Enter' && !event.repeat && !event.target.closest('button')) { event.preventDefault(); if(state==='paused')pause(); else if(state!=='running')start(); }
+      });
+      let touchStart = null;
+      $('board').addEventListener('pointerdown',event=>{if(event.target.closest('button'))return;touchStart={x:event.clientX,y:event.clientY};$('board').setPointerCapture(event.pointerId);});
+      $('board').addEventListener('pointerup',event=>{
+        if (!touchStart) return;
+        const dx=event.clientX-touchStart.x,dy=event.clientY-touchStart.y;touchStart=null;
+        if (Math.max(Math.abs(dx),Math.abs(dy))<12) return;
+        turn(Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up'));
+      });
+      $('board').addEventListener('pointercancel',()=>touchStart=null);
+      document.addEventListener('visibilitychange',()=>{if(document.hidden && state==='running')pause();});
+      new ResizeObserver(()=>{const width=Math.round(canvas.clientWidth*Math.min(window.devicePixelRatio||1,2));if(width && canvas.width!==width){canvas.width=width;canvas.height=width;draw();}}).observe(canvas);
+      reset(); draw(); updateControls(); requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>
