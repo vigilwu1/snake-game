@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#15394a">
+<meta name="description" content="一本为独行背包客准备的亚非欧旅行书：50—60天路线、每日计划、吃住交通、预算与离线笔记。">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>在路上 · 亚非欧旅行书</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./assets/icon-192.png">
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a>
+<aside class="sidebar" aria-label="旅行书目录">
+<a class="brand" href="#journey"><span class="brand-mark" aria-hidden="true">↗</span><span>在路上<small>一本随身旅行书</small></span></a>
+<p class="sidebar-intro">从天山脚下，<br>一直走到尼罗河。</p>
+<nav id="desktop-nav"></nav>
+<div class="sidebar-bottom"><span class="status-dot"></span><span id="offline-status">正在准备离线阅读…</span><p>你的下一段故事，<br>可以从任何一页开始。</p></div>
+</aside>
+<div class="shell">
+<header class="topbar"><a class="mobile-brand" href="#journey">在路上<span>亚非欧旅行书</span></a><div class="crumb" id="crumb">我的旅程</div><div class="top-tools"><label class="sr-only" for="plan-select">选择旅行方案</label><select id="plan-select" name="plan"></select><button class="icon-button" id="search-open" aria-label="查找旅行内容"></button></div></header>
+<main id="main" tabindex="-1"></main>
+<footer class="page-footer">为一路上的风景与朋友留一页。<span>资料核对 2026.11.02 · 出发前需更新</span></footer>
+</div>
+<nav class="mobile-nav" id="mobile-nav" aria-label="旅行书导航"></nav>
+<dialog id="reader" aria-label="国家旅行章节"></dialog>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">想翻到哪一页？</h2><button class="icon-button" data-close-search aria-label="关闭查找">×</button></div><label class="sr-only" for="search-input">查找国家、城市、吃住或交通</label><input id="search-input" name="search" type="search" placeholder="试试：卡兹别克、签证、早餐…" autocomplete="off"><div id="search-results"></div></dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+<input type="file" id="import-file" accept="application/json,.json" hidden aria-label="选择旅行备份文件">
+<noscript>请开启浏览器的 JavaScript 以使用旅行书。也可下载<a href="./完整研究底稿.md">完整研究底稿</a>阅读。</noscript>
+<script src="./data.js"></script><script src="./visual-data.js"></script><script src="./app.js"></script>
+</body></html>
