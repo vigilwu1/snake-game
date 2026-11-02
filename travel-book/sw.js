@@ -1,4 +1,4 @@
-const CACHE='travel-book-4d3aab996f56';
+const CACHE='travel-book-9cd8ea7f72a1';
 const FILES=["./", "./index.html", "./styles.css", "./data.js", "./visual-data.js", "./app.js", "./manifest.webmanifest", "./assets/icon.svg", "./assets/icon-192.png", "./assets/icon-512.png", "./旅行书-离线版.html", "./完整研究底稿.md", "./技能探索与路线取舍.md", "./热门路线与取舍.md", "./assets/photo-ae.jpg", "./assets/photo-al.jpg", "./assets/photo-am.jpg", "./assets/photo-az.jpg", "./assets/photo-ba.jpg", "./assets/photo-cn.jpg", "./assets/photo-eg.jpg", "./assets/photo-ge.jpg", "./assets/photo-kz.jpg", "./assets/photo-me.jpg", "./assets/photo-rs.jpg", "./assets/photo-tr.jpg", "./assets/photo-uz.jpg"];
 const urls=new Set(FILES.map(p=>new URL(p,self.registration.scope).href));
 self.addEventListener('install',event=>event.waitUntil((async()=>{const cache=await caches.open(CACHE);for(const file of FILES){const request=new Request(new URL(file,self.registration.scope),{cache:'reload',credentials:'same-origin'});const response=await fetch(request);if(!response.ok||response.redirected)throw Error('Offline content unavailable');await cache.put(request,response);}await self.skipWaiting();})()));
