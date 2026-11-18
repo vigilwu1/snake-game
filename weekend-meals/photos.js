@@ -35,7 +35,10 @@ window.mealPhotos = (() => {
   }
 
   function assetUrl(path) {
-    return new URL('.' + path, location.href).href;
+    const url = new URL('.' + path, location.href);
+    const version = window.mealSource.assetVersions?.[path];
+    if (version) url.searchParams.set('v', version);
+    return url.href;
   }
 
   async function resolve(path) {
