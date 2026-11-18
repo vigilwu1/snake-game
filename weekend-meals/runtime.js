@@ -183,6 +183,14 @@
       localStorage.setItem(storagePrefix + key, JSON.stringify(value));
     },
     showToast({ title, duration }) { notify(title, duration); },
+    async setClipboardData({ data, success, fail }) {
+      try {
+        await navigator.clipboard.writeText(data);
+        success?.();
+      } catch {
+        fail?.();
+      }
+    },
     setNavigationBarTitle({ title }) {
       getActive().title = title;
       requestRender();
@@ -310,7 +318,7 @@
 
     if (element instanceof HTMLElement) {
       if (key != null) element.dataset.key = String(key);
-      for (const name of ['class', 'placeholder', 'maxlength', 'aria-label']) {
+      for (const name of ['class', 'placeholder', 'maxlength', 'aria-label', 'aria-pressed']) {
         const attr = value(attrs[name], scope);
         if (attr != null) element.setAttribute(name, attr);
       }
