@@ -205,6 +205,7 @@ body { margin: 0; }
 .web-tab[aria-current] { color: var(--primary); font-weight: 700; }
 .web-toast {
   position: fixed; z-index: 5; margin: 0; padding: 12px 18px; bottom: calc(80px + env(safe-area-inset-bottom));
+  pointer-events: none;
   left: 50%; width: max-content; max-width: min(85vw, 410px); transform: translateX(-50%);
   border-radius: 10px; background: #27211d; color: #fffdfa; font-size: 14px; text-align: center;
 }
