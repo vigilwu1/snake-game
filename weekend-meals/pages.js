@@ -1,10 +1,5 @@
-window.mealSource = {app:{"pages": ["pages/today/index", "pages/prep/index", "pages/recipes/index", "pages/review/index", "pages/recipe/index", "pages/recipe/edit", "pages/schedule/index", "pages/records/index"], "window": {"navigationBarTitleText": "周末备餐", "navigationBarBackgroundColor": "#f8f7f1", "navigationBarTextStyle": "black", "backgroundColor": "#f8f7f1"}, "tabBar": {"color": "#677168", "selectedColor": "#24533c", "backgroundColor": "#fffef9", "borderStyle": "white", "list": [{"pagePath": "pages/today/index", "text": "今天", "iconPath": "assets/today.png", "selectedIconPath": "assets/today-active.png"}, {"pagePath": "pages/prep/index", "text": "备餐", "iconPath": "assets/prep.png", "selectedIconPath": "assets/prep-active.png"}, {"pagePath": "pages/recipes/index", "text": "菜谱", "iconPath": "assets/recipes.png", "selectedIconPath": "assets/recipes-active.png"}, {"pagePath": "pages/review/index", "text": "回顾", "iconPath": "assets/review.png", "selectedIconPath": "assets/review-active.png"}]}, "style": "v2", "sitemapLocation": "sitemap.json"},titles:{"pages/today/index": "周末备餐", "pages/prep/index": "备餐", "pages/recipes/index": "菜谱", "pages/review/index": "回顾", "pages/recipe/index": "菜谱详情", "pages/recipe/edit": "新增菜谱", "pages/schedule/index": "排餐", "pages/records/index": "备餐记录"},assetVersions:{"/assets/rec-boiled-shrimp.jpg": "11f6d497a289", "/assets/rec-broccoli-beef.jpg": "b3ede3980ce2", "/assets/rec-cauliflower-chickpeas.jpg": "31d60316e722", "/assets/rec-miso-salmon.jpg": "c68a4942d842", "/assets/rec-mushroom-tofu.jpg": "07bdc7a6fbb1", "/assets/rec-pepper-chicken.jpg": "0061d8ed86bf", "/assets/rec-roasted-vegetables.jpg": "c36b6412dcda", "/assets/rec-shiitake-chicken.jpg": "71c28d655739", "/assets/rec-soy-drumsticks.jpg": "309b8ed9b79e", "/assets/rec-steamed-cod.jpg": "f77725d95823", "/assets/rec-tomato-beef-beans.jpg": "16fad809036f", "/assets/rec-tomato-egg-edamame.jpg": "6e18f1024ec7", "/assets/welcome.jpg": "f6e45efb4e1d"},modules:{"app":function(require,module,exports){
-App({
-  globalData: {
-    prepTarget: '',
-    recipeTarget: ''
-  }
-})
+window.mealSource = {app:{"pages": ["pages/prep/index", "pages/today/index", "pages/recipes/index", "pages/review/index", "pages/recipe/index", "pages/recipe/edit", "pages/schedule/index", "pages/records/index"], "window": {"navigationBarTitleText": "周末备餐", "navigationBarBackgroundColor": "#fdfbf7", "navigationBarTextStyle": "black", "backgroundColor": "#fdfbf7"}, "tabBar": {"color": "#6b6057", "selectedColor": "#a33e2e", "backgroundColor": "#fdfbf7", "borderStyle": "white", "list": [{"pagePath": "pages/prep/index", "text": "备餐", "iconPath": "assets/prep.png", "selectedIconPath": "assets/prep-active.png"}, {"pagePath": "pages/recipes/index", "text": "菜谱", "iconPath": "assets/recipes.png", "selectedIconPath": "assets/recipes-active.png"}, {"pagePath": "pages/review/index", "text": "历史", "iconPath": "assets/review.png", "selectedIconPath": "assets/review-active.png"}]}, "style": "v2", "sitemapLocation": "sitemap.json"},titles:{"pages/prep/index": "备餐", "pages/today/index": "周末备餐", "pages/recipes/index": "菜谱", "pages/review/index": "历史", "pages/recipe/index": "菜谱详情", "pages/recipe/edit": "新增菜谱", "pages/schedule/index": "编辑菜单", "pages/records/index": "备餐记录"},assetVersions:{"/assets/rec-boiled-shrimp.jpg": "11f6d497a289", "/assets/rec-broccoli-beef.jpg": "b3ede3980ce2", "/assets/rec-cauliflower-chickpeas.jpg": "31d60316e722", "/assets/rec-miso-salmon.jpg": "c68a4942d842", "/assets/rec-mushroom-tofu.jpg": "07bdc7a6fbb1", "/assets/rec-pepper-chicken.jpg": "0061d8ed86bf", "/assets/rec-roasted-vegetables.jpg": "c36b6412dcda", "/assets/rec-shiitake-chicken.jpg": "71c28d655739", "/assets/rec-soy-drumsticks.jpg": "309b8ed9b79e", "/assets/rec-steamed-cod.jpg": "f77725d95823", "/assets/rec-tomato-beef-beans.jpg": "16fad809036f", "/assets/rec-tomato-egg-edamame.jpg": "6e18f1024ec7", "/assets/welcome.jpg": "f6e45efb4e1d"},modules:{"app":function(require,module,exports){
+App({ globalData: { activeWeek: '' } })
 
 },"lib/dates":function(require,module,exports){
 const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
@@ -99,7 +94,17 @@ function makeId() {
 }
 
 function read() {
-  return wx.getStorageSync(storageKey) || { recipes: [], weeks: {} }
+  const state = wx.getStorageSync(storageKey) || { recipes: [], weeks: {} }
+  for (const [start, current] of Object.entries(state.weeks)) {
+    if (current.menu) continue
+    const { recipe, ...old } = current
+    state.weeks[start] = {
+      ...emptyWeek(start), ...old,
+      menu: recipe ? [recipe] : [],
+      targetBoxes: old.slots?.length || 5
+    }
+  }
+  return state
 }
 
 function write(state) {
@@ -112,7 +117,7 @@ function write(state) {
 
 function emptyWeek(start) {
   return {
-    start, recipe: null, slots: [], shopping: [], expenses: [], notes: [], batch: null, eaten: []
+    start, menu: [], targetBoxes: 5, slots: [], shopping: [], expenses: [], notes: [], cooked: [], batch: null, eaten: []
   }
 }
 
@@ -147,15 +152,6 @@ function findRecipe(id, state = read()) {
   return state.recipes.find(recipe => recipe.id === id) || recommendations.find(recipe => recipe.id === id)
 }
 
-function recipeMetadata(recipe) {
-  if (!recipe || !recipe.source) return {}
-  const { minutes, servings, summary, pairing } = recipe
-  return {
-    source: { ...recipe.source },
-    ...(servings ? { minutes, servings, summary, pairing } : {})
-  }
-}
-
 function collectRecommendation(id) {
   const original = recommendations.find(recipe => recipe.id === id)
   if (!original) throw new Error('找不到这道推荐菜谱')
@@ -163,7 +159,7 @@ function collectRecommendation(id) {
   const existing = state.recipes.find(recipe => recipe.recommendationId === id)
   if (existing) return existing
   const recipe = {
-    ...original, ...recipeMetadata(original), id: makeId(),
+    ...original, source: { ...original.source }, id: makeId(),
     ingredients: original.ingredients.map(item => ({ ...item })),
     recommendationId: id, updatedAt: Date.now()
   }
@@ -178,12 +174,17 @@ function saveRecipe(input) {
   const state = read()
   const existing = state.recipes.find(recipe => recipe.id === input.id)
   if (input.id && !existing) throw new Error('找不到这份菜谱')
+  const servingsInput = String(input.servings ?? existing?.servings ?? '').trim()
+  const servings = servingsInput ? countValue(servingsInput, '菜谱份数') : null
+  if (servings === 0) throw new Error('菜谱份数至少为 1')
   const recipe = {
     id: existing ? existing.id : makeId(),
     title,
     photo: input.photo || '',
     ingredients: ingredientsFromText(input.ingredients),
     method: input.method.trim(),
+    category: input.category ?? existing?.category ?? '',
+    ...(servings ? { servings } : {}),
     updatedAt: Date.now(),
     ...(existing && existing.recommendationId
       ? { recommendationId: existing.recommendationId, source: { ...existing.source } }
@@ -194,23 +195,62 @@ function saveRecipe(input) {
   return recipe
 }
 
-function syncShopping(current, ingredients) {
-  const desired = new Set(ingredients.map(item => item.name))
-  const kept = current.filter(item => desired.has(item.name) || item.manual || item.status !== 'todo')
-  const existingNames = new Set(kept.map(item => item.name))
-  return [
-    ...kept,
-    ...ingredients.filter(item => !existingNames.has(item.name)).map(item => ({
-      ...item, id: makeId(), status: 'todo', manual: false
-    }))
-  ]
+function shoppingKey(name) {
+  return name.trim().replace(/\s+/g, ' ').toLowerCase()
 }
 
-function schedule(start, recipe, slots, { replace = false } = {}) {
-  if (!recipe || !recipe.title) throw new Error('先选一份菜谱')
-  if (!slots.length) throw new Error('至少选一顿要安排的餐')
-  if (dates.monday(start) !== start) throw new Error('请选择一个备餐周')
+function amountParts(amount) {
+  const match = (amount || '').trim().match(/^(\d+(?:\.\d+)?)\s*([\u4e00-\u9fffA-Za-z]+)$/)
+  return match ? { value: Number(match[1]), unit: match[2].toLowerCase() } : null
+}
 
+function quantity(value, unit) {
+  return Number(value.toFixed(2)) + ' ' + unit
+}
+
+function shoppingNeeds(menu, targetBoxes) {
+  const groups = new Map()
+  for (const dish of menu) {
+    for (const item of dish.ingredients) {
+      const key = shoppingKey(item.name)
+      if (!groups.has(key)) groups.set(key, { name: item.name, uses: [] })
+      const parts = amountParts(item.amount)
+      const value = parts && parts.value * (dish.servings ? targetBoxes / dish.servings : 1)
+      groups.get(key).uses.push({
+        dishId: dish.id, title: dish.title, amount: parts && dish.servings ? quantity(value, parts.unit) : item.amount,
+        unit: parts ? parts.unit : '', value
+      })
+    }
+  }
+  for (const group of groups.values()) {
+    const [first] = group.uses
+    const addable = first.unit && group.uses.every(use => use.unit === first.unit)
+    group.amount = addable ? quantity(group.uses.reduce((sum, use) => sum + use.value, 0), first.unit)
+      : (group.uses.length === 1 ? first.amount : '')
+  }
+  return groups
+}
+
+function syncShopping(current) {
+  const desired = shoppingNeeds(current.menu, current.targetBoxes)
+  const shopping = []
+  for (const item of current.shopping) {
+    const key = shoppingKey(item.name)
+    const need = desired.get(key)
+    desired.delete(key)
+    if (need) shopping.push({
+      ...item, ...need, ...(item.manual ? { amount: item.amount || need.amount } : {}), removed: false
+    })
+    else if (item.manual) shopping.push({ ...item, uses: [], removed: false })
+    else if (item.status !== 'todo') shopping.push({ ...item, uses: [], removed: true })
+  }
+  for (const need of desired.values()) shopping.push({ ...need, id: makeId(), status: 'todo', manual: false })
+  current.shopping = shopping
+}
+
+function checkPlan(start, targetBoxes, slots) {
+  if (dates.monday(start) !== start) throw new Error('请选择一个备餐周')
+  if (!countValue(targetBoxes, '计划盒数')) throw new Error('至少计划一盒')
   const keys = new Set()
   for (const { date, meal } of slots) {
     const key = dates.slotKey(date, meal)
@@ -220,19 +260,65 @@ function schedule(start, recipe, slots, { replace = false } = {}) {
     keys.add(key)
   }
 
+}
+
+function updatePlan(start, edit) {
   updateWeek(start, current => {
     if (current.batch) throw new Error('这周已分装，请选择其他备餐周')
-    if (current.recipe && !replace) throw new Error('请先确认更新这周的安排')
-    current.recipe = {
-      id: recipe.id,
-      title: recipe.title,
-      photo: recipe.photo,
-      ingredients: recipe.ingredients.map(item => ({ ...item })),
-      method: recipe.method,
-      ...recipeMetadata(recipe)
-    }
+    edit(current)
+    syncShopping(current)
+  })
+}
+
+function setPlan(start, targetBoxes, slots) {
+  checkPlan(start, targetBoxes, slots)
+  updatePlan(start, current => {
+    current.targetBoxes = Number(targetBoxes)
     current.slots = slots.slice().sort(dates.compareSlots)
-    current.shopping = syncShopping(current.shopping, current.recipe.ingredients)
+  })
+}
+
+function addDish(start, recipe) {
+  if (!recipe?.title?.trim()) throw new Error('先填写菜名')
+  if (dates.monday(start) !== start) throw new Error('请选择一个备餐周')
+  const dish = {
+    ...recipe, id: recipe.id || makeId(), title: recipe.title.trim(),
+    photo: recipe.photo || '', method: recipe.method || '',
+    ingredients: (recipe.ingredients || []).map(item => ({ ...item }))
+  }
+  updatePlan(start, current => {
+    if (current.menu.some(item => item.id === dish.id || (!recipe.id && item.title === dish.title))) {
+      throw new Error('菜单里已有这道菜')
+    }
+    current.menu.push(dish)
+  })
+}
+
+function removeDish(start, id) {
+  updatePlan(start, current => {
+    current.menu = current.menu.filter(dish => dish.id !== id)
+    current.cooked = current.cooked.filter(dishId => dishId !== id)
+  })
+}
+
+function copyPlan(from, to) {
+  const source = week(from)
+  if (!source.menu.length || from === to) throw new Error('请选择另一周复做这套菜单')
+  const slots = dates.moveSlots(source.slots, from, to)
+  checkPlan(to, source.targetBoxes, slots)
+  updatePlan(to, current => {
+    current.menu = source.menu
+    current.targetBoxes = source.targetBoxes
+    current.slots = slots
+    current.cooked = []
+  })
+}
+
+function setCookDone(start, id, done) {
+  updateWeek(start, current => {
+    if (!current.menu.some(dish => dish.id === id)) throw new Error('找不到这道菜')
+    current.cooked = current.cooked.filter(dishId => dishId !== id)
+    if (done) current.cooked.push(id)
   })
 }
 
@@ -276,11 +362,15 @@ function saveEntry(start, type, input) {
     const index = current[type].findIndex(entry => entry.id === input.id)
     if (input.id && index < 0) throw new Error('找不到这条记录')
     const existing = current[type][index]
+    const dish = isExpense ? null : current.menu.find(item => item.id === input.dishId)
     const entry = {
       id: existing ? existing.id : makeId(),
       createdAt: existing ? existing.createdAt : Date.now(),
       photo: input.photo || '',
-      ...fields
+      ...fields,
+      ...(dish ? { dishId: dish.id, dishTitle: dish.title } : {}),
+      ...(!dish && existing?.dishId === input.dishId && input.dishId
+        ? { dishId: existing.dishId, dishTitle: existing.dishTitle } : {})
     }
     if (existing) current[type][index] = entry
     else current[type].push(entry)
@@ -328,7 +418,7 @@ function saveBatch(start, input) {
   if (chilled + frozen !== count) throw new Error('冷藏和冷冻盒数加起来要等于实际盒数')
 
   updateWeek(start, current => {
-    if (!current.recipe) throw new Error('先排好这周的菜谱')
+    if (!current.menu.length) throw new Error('先安排这周的菜单')
     const usedChilled = current.eaten.filter(entry => entry.place === 'chilled').length
     const usedFrozen = current.eaten.length - usedChilled
     if (chilled < usedChilled || frozen < usedFrozen) throw new Error('存放盒数不能少于已经吃掉的对应盒数')
@@ -341,24 +431,18 @@ function saveBatch(start, input) {
   })
 }
 
-function eat(start, date, meal, place) {
+function eat(start, place) {
   updateWeek(start, current => {
-    if (!current.slots.some(slot => slot.date === date && slot.meal === meal)) {
-      throw new Error('这顿饭目前不在排餐里')
-    }
-    if (current.eaten.some(entry => entry.date === date && entry.meal === meal)) {
-      throw new Error('这顿已经记过了')
-    }
     if (!places.includes(place) || stockFor(current)[place] <= 0) {
       throw new Error('这个位置已经没有餐盒了')
     }
-    current.eaten.push({ date, meal, place, createdAt: Date.now() })
+    current.eaten.push({ date: dates.dayKey(), place, createdAt: Date.now() })
   })
 }
 
-function undoEat(start, date, meal) {
+function undoEat(start) {
   updateWeek(start, current => {
-    current.eaten = current.eaten.filter(entry => entry.date !== date || entry.meal !== meal)
+    current.eaten.pop()
   })
 }
 
@@ -367,8 +451,9 @@ function totalSpent(current) {
 }
 
 module.exports = {
-  addShopping, collectRecommendation, eat, expenseCents, findRecipe, ingredientsToText, read, removeEntry, saveBatch, saveEntry,
-  saveRecipe, schedule, setShoppingStatus, stockFor, totalSpent, undoEat, week
+  addDish, addShopping, collectRecommendation, copyPlan, eat, expenseCents, findRecipe, ingredientsToText, read,
+  removeDish, removeEntry, saveBatch, saveEntry, saveRecipe, setCookDone, setPlan, setShoppingStatus, stockFor,
+  totalSpent, undoEat, week
 }
 
 },"lib/photo-credits":function(require,module,exports){
@@ -397,10 +482,13 @@ module.exports = {
 }
 
 },"lib/recommendations":function(require,module,exports){
+const sides = new Set(['roasted-vegetables', 'cauliflower-chickpeas'])
+
 function entry(id, title, minutes, summary, pairing, ingredients, steps, sourceName, sourceUrl) {
   return {
     id: 'rec-' + id,
     title,
+    category: sides.has(id) ? 'side' : 'main',
     photo: '/assets/rec-' + id + '.jpg',
     minutes,
     servings: 5,
@@ -515,6 +603,10 @@ const dates = require('./dates')
 const journal = require('./journal')
 
 const storageLabels = { chilled: '冷藏', frozen: '冷冻' }
+const dishCategories = [
+  { id: 'main', label: '主菜' }, { id: 'side', label: '配菜' },
+  { id: 'staple', label: '主食' }, { id: 'one-pot', label: '一锅餐' }
+]
 const shoppingLabels = { todo: '待购买', 'at-home': '家里有', bought: '已买' }
 
 function formatMoney(cents) {
@@ -552,7 +644,7 @@ async function submit(page, work) {
 
 function confirm(title, content, confirmText = '确认') {
   return new Promise(resolve => wx.showModal({
-    title, content, confirmText, confirmColor: '#24543b',
+    title, content, confirmText, confirmColor: '#a33e2e',
     success: result => resolve(result.confirm),
     fail: () => resolve(false)
   }))
@@ -599,7 +691,7 @@ function releasePhoto(photo) {
   try {
     const { recipes, weeks } = journal.read()
     const used = recipes.some(recipe => recipe.photo === photo) || Object.values(weeks).some(week =>
-      (week.recipe && week.recipe.photo === photo) ||
+      week.menu.some(dish => dish.photo === photo) ||
       (week.batch && week.batch.photo === photo) ||
       week.expenses.some(entry => entry.photo === photo) ||
       week.notes.some(entry => entry.photo === photo)
@@ -615,20 +707,34 @@ function previewPhoto(event) {
   if (photo) wx.previewImage({ current: photo, urls: [photo] })
 }
 
+function activeWeek() {
+  const selected = getApp().globalData.activeWeek
+  if (selected) return selected
+  const today = dates.dayKey()
+  const thisWeek = dates.monday(today)
+  const current = journal.week(thisWeek)
+  const weekend = ['周六', '周日'].includes(dates.weekday(today))
+  return !weekend && (current.menu.length || current.batch) ? thisWeek : dates.nextMonday()
+}
+
 function openPrep(start) {
-  getApp().globalData.prepTarget = start || ''
+  if (start) getApp().globalData.activeWeek = start
   wx.switchTab({ url: '/pages/prep/index' })
 }
 
 function openRecipes(start) {
-  getApp().globalData.recipeTarget = start || ''
+  if (start) getApp().globalData.activeWeek = start
   wx.switchTab({ url: '/pages/recipes/index' })
 }
 
 function weekView(current) {
   return {
     ...current,
+    menu: current.menu.map(dish => ({
+      ...dish, categoryLabel: dishCategories.find(type => type.id === dish.category)?.label || ''
+    })),
     label: dates.weekLabel(current.start),
+    slotSummary: current.slots.map(slot => dates.weekday(slot.date) + dates.mealLabels[slot.meal]).join('、'),
     spent: formatMoney(journal.totalSpent(current)),
     stock: journal.stockFor(current)
   }
@@ -653,7 +759,7 @@ function nutritionParts(batch) {
 }
 
 module.exports = {
-  attempt, choosePhoto, confirm, datedEntry, formatMoney, message, nutritionParts, openPrep,
+  activeWeek, attempt, choosePhoto, confirm, datedEntry, dishCategories, formatMoney, message, nutritionParts, openPrep,
   openRecipes, previewPhoto, releasePhoto, report, saveWithPhoto, shoppingLabels, storageLabels, submit, weekView
 }
 
@@ -663,51 +769,77 @@ const journal = require('../../lib/journal')
 const ui = require('../../lib/ui')
 
 Page({
-  data: { current: null, timing: '', slotSummary: '' },
+  data: { current: null, busy: false },
 
   onShow() {
-    const app = getApp()
-    const start = app.globalData.prepTarget || this.data.start || dates.nextMonday()
-    app.globalData.prepTarget = ''
-    this.refresh(start)
+    this.refresh(ui.activeWeek())
   },
 
   refresh(start) {
+    getApp().globalData.activeWeek = start
     const current = ui.weekView(journal.week(start))
     const thisWeek = dates.monday()
-    const timing = start === thisWeek ? '本周' : (start === dates.addDays(thisWeek, 7) ? '下周' : '')
-    const weekdayLunch = dates.defaultSlots(start)
-    const isWeekdayLunch = current.slots.length === weekdayLunch.length &&
-      current.slots.every((slot, index) => slot.date === weekdayLunch[index].date && slot.meal === 'lunch')
-    const slotSummary = isWeekdayLunch
-      ? '周一至周五 · 午餐'
-      : current.slots.map(slot => dates.weekday(slot.date) + dates.mealLabels[slot.meal]).join('、')
-    this.setData({ start, current, timing, slotSummary })
+    const nextWeek = dates.nextMonday()
+    const nextAction = !current.menu.length ? ''
+      : current.batch ? ''
+        : current.shopping.some(item => item.status === 'todo') ? 'shop'
+          : current.cooked.length < current.menu.length ? 'cook' : 'batch'
+    this.setData({
+      start, current, thisWeek, nextWeek, nextAction,
+      timing: start === thisWeek ? '本周备餐' : start === nextWeek ? '下周备餐' : '备餐',
+      cover: current.batch?.photo || '/assets/welcome.jpg'
+    })
   },
 
-  changeWeek(event) {
-    this.refresh(dates.addDays(this.data.start, 7 * Number(event.currentTarget.dataset.step)))
+  selectWeek(event) {
+    this.refresh(event.currentTarget.dataset.start)
   },
 
   chooseRecipe() {
     ui.openRecipes(this.data.start)
   },
 
-  openRecipe() {
-    wx.navigateTo({ url: '/pages/recipe/index?week=' + this.data.start })
-  },
-
   editPlan() {
     wx.navigateTo({ url: '/pages/schedule/index?edit=' + this.data.start })
   },
 
+  openDish(event) {
+    const { id } = event.currentTarget.dataset
+    wx.navigateTo({ url: '/pages/recipe/index?week=' + this.data.start + '&id=' + id })
+  },
+
   openRecords(event) {
     const mode = event.currentTarget.dataset.mode
-    if (mode === 'batch' && !this.data.current.recipe) {
-      ui.message('先选一道菜谱，再登记成品')
+    wx.navigateTo({ url: '/pages/records/index?mode=' + mode + '&week=' + this.data.start })
+  },
+
+  previewPhoto: ui.previewPhoto,
+
+  eat() {
+    if (this.data.busy) return
+    const { start, current } = this.data
+    const places = Object.keys(ui.storageLabels).filter(place => current.stock[place] > 0)
+    if (!places.length) return
+    const record = place => {
+      ui.attempt(() => journal.eat(start, place))
+      this.refresh(start)
+    }
+    if (places.length === 1) {
+      record(places[0])
       return
     }
-    wx.navigateTo({ url: '/pages/records/index?mode=' + mode + '&week=' + this.data.start })
+    this.setData({ busy: true })
+    wx.showActionSheet({
+      alertText: '这盒从哪取的？',
+      itemList: places.map(place => ui.storageLabels[place]),
+      success: result => record(places[result.tapIndex]),
+      complete: () => this.setData({ busy: false })
+    })
+  },
+
+  undo() {
+    ui.attempt(() => journal.undoEat(this.data.start))
+    this.refresh(this.data.start)
   }
 })
 
@@ -716,7 +848,7 @@ const journal = require('../../lib/journal')
 const ui = require('../../lib/ui')
 
 Page({
-  data: { title: '', photo: '', ingredients: '', method: '', saving: false },
+  data: { title: '', photo: '', ingredients: '', method: '', servings: '', category: '', categories: ui.dishCategories, saving: false },
 
   onLoad(options) {
     this.recipeId = options.id
@@ -732,13 +864,18 @@ Page({
       title: recipe.title,
       photo: recipe.photo,
       ingredients: journal.ingredientsToText(recipe.ingredients),
-      method: recipe.method
+      method: recipe.method, servings: recipe.servings ? String(recipe.servings) : '', category: recipe.category || ''
     })
   },
 
   input(event) {
     const field = event.currentTarget.dataset.field
     this.setData({ [field]: event.detail.value })
+  },
+
+  selectCategory(event) {
+    const { id } = event.currentTarget.dataset
+    this.setData({ category: this.data.category === id ? '' : id })
   },
 
   async pickPhoto() {
@@ -763,24 +900,22 @@ Page({
       if (!data.title.trim()) throw new Error('先写一个菜名')
       const previous = this.recipeId && journal.read().recipes.find(item => item.id === this.recipeId)
       const recipe = await ui.saveWithPhoto(data.photo, photo => journal.saveRecipe({
-        id: this.recipeId, title: data.title, ingredients: data.ingredients, method: data.method, photo
+        id: this.recipeId, title: data.title, ingredients: data.ingredients, method: data.method, category: data.category, servings: data.servings, photo
       }))
       if (previous && previous.photo !== recipe.photo) ui.releasePhoto(previous.photo)
       if (this.recipeId) wx.navigateBack()
-      else wx.redirectTo({ url: '/pages/recipe/index?id=' + recipe.id + this.targetQuery() })
+      else {
+        const pages = getCurrentPages()
+        const library = pages[pages.length - 2]
+        const target = library?.route === 'pages/recipes/index' ? library.data.target : ''
+        if (target) library.setData({ tab: 'mine', query: '', category: '' })
+        wx.redirectTo({ url: '/pages/recipe/index?id=' + recipe.id + (target ? '&target=' + target : '') })
+      }
     })
-  },
-
-  targetQuery() {
-    const pages = getCurrentPages()
-    const previous = pages[pages.length - 2]
-    const target = previous && previous.route === 'pages/recipes/index' ? previous.data.target : ''
-    return target ? '&target=' + target : ''
   }
 })
 
 },"pages/recipe/index":function(require,module,exports){
-const dates = require('../../lib/dates')
 const journal = require('../../lib/journal')
 const recommendations = require('../../lib/recommendations')
 const photoCredits = require('../../lib/photo-credits')
@@ -789,25 +924,29 @@ const ui = require('../../lib/ui')
 Page({
   data: {
     recipe: null, ready: false, isSnapshot: false, isRecommendation: false,
-    collected: false, photoCredit: null, target: '', targetLabel: ''
+    collected: false, photoCredit: null, target: ''
   },
 
   onLoad(options) {
     this.recipeId = options.id
     this.weekStart = options.week
-    const target = options.target || ''
-    this.setData({ isSnapshot: Boolean(options.week), target, targetLabel: target ? dates.weekLabel(target) : '' })
+    const target = options.target || ui.activeWeek()
+    this.setData({ isSnapshot: Boolean(options.week), target })
   },
 
   onShow() {
     const state = journal.read()
     const recipe = this.weekStart
-      ? journal.week(this.weekStart, state).recipe
+      ? journal.week(this.weekStart, state).menu.find(dish => dish.id === this.recipeId)
       : journal.findRecipe(this.recipeId, state)
     const isRecommendation = !this.weekStart && recommendations.some(item => item.id === this.recipeId)
     const collected = isRecommendation && state.recipes.some(item => item.recommendationId === this.recipeId)
     const photoCredit = recipe ? photoCredits[recipe.photo] || null : null
-    this.setData({ recipe: recipe || null, ready: true, isRecommendation, collected, photoCredit })
+    const plan = journal.week(this.data.target, state)
+    this.setData({
+      recipe: recipe || null, ready: true, isRecommendation, collected, photoCredit,
+      selected: plan.menu.some(dish => dish.id === this.recipeId), locked: Boolean(plan.batch)
+    })
   },
 
   editRecipe() {
@@ -815,8 +954,11 @@ Page({
   },
 
   schedule() {
-    const target = this.data.target ? '&target=' + this.data.target : ''
-    wx.navigateTo({ url: '/pages/schedule/index?id=' + this.recipeId + target })
+    ui.attempt(() => {
+      journal.addDish(this.data.target, this.data.recipe)
+      this.setData({ selected: true })
+      ui.message('已加入周菜单')
+    })
   },
 
   collect() {
@@ -846,65 +988,84 @@ Page({
 const dates = require('../../lib/dates')
 const journal = require('../../lib/journal')
 const recommendations = require('../../lib/recommendations')
+const ui = require('../../lib/ui')
 
 Page({
-  data: { recipes: [], query: '', target: '', targetLabel: '', total: 0, tab: '' },
+  data: {
+    recipes: [], query: '', category: '', tab: '', categories: [{ id: '', label: '全部' }, ...ui.dishCategories]
+  },
 
   onShow() {
-    const app = getApp()
-    const target = app.globalData.recipeTarget || this.data.target
-    app.globalData.recipeTarget = ''
-    this.setData({ target, targetLabel: target ? dates.weekLabel(target) : '' })
-    this.refresh(this.data.query)
+    this.refresh()
   },
 
-  onHide() {
-    if (!this.openingDetail) this.setData({ target: '', targetLabel: '' })
-    this.openingDetail = false
-  },
-
-  refresh(query, tab = this.data.tab) {
-    const { recipes } = journal.read()
-    const selected = tab || (recipes.length ? 'mine' : 'recommended')
-    const library = selected === 'mine' ? recipes : recommendations
+  refresh() {
+    const target = ui.activeWeek()
+    const state = journal.read()
+    const plan = journal.week(target, state)
+    const { query, category } = this.data
+    const tab = this.data.tab || (state.recipes.length ? 'mine' : 'recommended')
+    const library = tab === 'mine' ? state.recipes : recommendations
     const needle = query.trim().toLowerCase()
+    const selected = new Set(plan.menu.map(item => item.id))
+    const recipes = library.filter(recipe =>
+      (!category || recipe.category === category) &&
+      [recipe.title, ...recipe.ingredients.map(item => item.name)].some(value => value.toLowerCase().includes(needle))
+    ).map(recipe => ({
+      ...recipe, selected: selected.has(recipe.id),
+      categoryLabel: ui.dishCategories.find(type => type.id === recipe.category)?.label || ''
+    }))
     this.setData({
-      query, tab: selected, total: library.length,
-      recipes: library.filter(recipe =>
-        [recipe.title, ...recipe.ingredients.map(item => item.name)].some(value => value.toLowerCase().includes(needle))
-      )
+      tab, target, recipes, selectedCount: plan.menu.length, locked: Boolean(plan.batch),
+      targetLabel: target === dates.monday() ? '本周' : target === dates.nextMonday() ? '下周' : dates.weekLabel(target)
     })
   },
 
-  changeTab(event) {
-    const { tab } = event.currentTarget.dataset
-    if (tab !== this.data.tab) this.refresh('', tab)
+  search(event) {
+    this.setData({ query: event.detail.value })
+    this.refresh()
   },
 
-  search(event) {
-    this.refresh(event.detail.value)
+  changeTab(event) {
+    this.setData({ tab: event.currentTarget.dataset.tab })
+    this.refresh()
+  },
+
+  changeCategory(event) {
+    this.setData({ category: event.currentTarget.dataset.id })
+    this.refresh()
   },
 
   addRecipe() {
-    this.openingDetail = true
-    this.refresh('', 'mine')
     wx.navigateTo({ url: '/pages/recipe/edit' })
   },
 
   openRecipe(event) {
-    this.openingDetail = true
     const { id } = event.currentTarget.dataset
-    const target = this.data.target ? '&target=' + this.data.target : ''
-    wx.navigateTo({ url: '/pages/recipe/index?id=' + id + target })
+    wx.navigateTo({ url: '/pages/recipe/index?id=' + id + '&target=' + this.data.target })
+  },
+
+  toggleDish(event) {
+    const { id } = event.currentTarget.dataset
+    const { target } = this.data
+    const selected = journal.week(target).menu.some(dish => dish.id === id)
+    ui.attempt(() => {
+      if (selected) journal.removeDish(target, id)
+      else journal.addDish(target, journal.findRecipe(id))
+      this.refresh()
+    })
+  },
+
+  openPlan() {
+    ui.openPrep(this.data.target)
   }
 })
 
 },"pages/records/index":function(require,module,exports){
-const dates = require('../../lib/dates')
 const journal = require('../../lib/journal')
 const ui = require('../../lib/ui')
 
-const titles = { shop: '采购', cook: '烹饪记录', batch: '分装' }
+const titles = { shop: '采购', cook: '烹饪', batch: '分装' }
 const entryTypes = { expense: 'expenses', note: 'notes' }
 const storageFields = [
   { field: 'count', label: '实际盒数' },
@@ -914,7 +1075,7 @@ const storageFields = [
 
 function batchFromWeek(current) {
   const batch = current.batch || {
-    count: current.slots.length || 1, chilled: 0, frozen: 0, photo: ''
+    count: current.targetBoxes, chilled: 0, frozen: 0, photo: ''
   }
   return {
     ...batch,
@@ -927,11 +1088,12 @@ function batchFromWeek(current) {
 Page({
   data: {
     current: null, mode: '', editor: '', form: {}, saving: false, nutritionOpen: false,
-    batch: {}, difference: 0, storageFields
+    batch: {}, difference: 0, storageFields, expandedIngredient: '', dish: null, steps: [], stepIndex: 0
   },
 
   onLoad(options) {
-    this.start = options.week || dates.nextMonday()
+    this.start = options.week || ui.activeWeek()
+    this.stepByDish = new Map()
     const mode = titles[options.mode] ? options.mode : 'shop'
     wx.setNavigationBarTitle({ title: titles[mode] })
     this.setData({ mode })
@@ -945,14 +1107,62 @@ Page({
 
   refresh() {
     const current = ui.weekView(journal.week(this.start))
+    const shopping = current.shopping.map(item => ({
+      ...item, uses: item.uses || [], statusLabel: ui.shoppingLabels[item.status],
+      detail: item.removed ? '已从菜单移除'
+        : item.uses?.length > 1 ? '用于 ' + item.uses.length + ' 道菜'
+          : item.uses?.[0]?.title || ''
+    }))
+    const todo = shopping.filter(item => item.status === 'todo')
+    const processed = shopping.filter(item => item.status !== 'todo')
     this.setData({
       current,
-      shopping: current.shopping.map(item => ({ ...item, statusLabel: ui.shoppingLabels[item.status] })),
+      shoppingSections: [{ label: '待买', rows: todo }, { label: '已处理', rows: processed }],
+      shoppingTotal: shopping.length, processedCount: processed.length,
       expenses: current.expenses.slice().reverse().map(item => ({
         ...ui.datedEntry(item), amount: ui.formatMoney(item.cents)
       })),
       notes: current.notes.map(ui.datedEntry)
     })
+    if (this.data.mode === 'cook') {
+      const dish = current.menu.find(item => item.id === this.data.dish?.id)
+        || current.menu.find(item => !current.cooked.includes(item.id)) || current.menu[0]
+      this.showDish(dish)
+    }
+  },
+
+  showDish(dish) {
+    const steps = (dish?.method || '').split(/\n+/).map(step => step.trim().replace(/^\d+[.、)）]\s*/, '')).filter(Boolean)
+    this.setData({
+      dish: dish || null, steps, stepIndex: this.stepByDish.get(dish?.id) || 0,
+      dishDone: this.data.current.cooked.includes(dish?.id),
+      cookMenu: this.data.current.menu.map(item => ({ ...item, done: this.data.current.cooked.includes(item.id) }))
+    })
+  },
+
+  switchDish(event) {
+    if (this.data.editor) return
+    this.showDish(this.data.current.menu.find(item => item.id === event.currentTarget.dataset.id))
+  },
+
+  moveStep(event) {
+    const { dish, stepIndex, steps } = this.data
+    const next = stepIndex + Number(event.currentTarget.dataset.step)
+    if (!dish || next < 0 || next >= steps.length) return
+    this.stepByDish.set(dish.id, next)
+    this.setData({ stepIndex: next })
+  },
+
+  toggleCookDone() {
+    const { dish, dishDone } = this.data
+    if (!dish) return
+    ui.attempt(() => journal.setCookDone(this.start, dish.id, !dishDone))
+    this.refresh()
+  },
+
+  toggleIngredient(event) {
+    const { id } = event.currentTarget.dataset
+    this.setData({ expandedIngredient: this.data.expandedIngredient === id ? '' : id })
   },
 
   setEditor(editor, form) {
@@ -968,17 +1178,9 @@ Page({
     this.setEditor('expense', { id: '', amount: '', shop: '', photo: '' })
   },
 
-  addNote() {
-    this.setEditor('note', { id: '', text: '', photo: '' })
-  },
-
-  async newPhotoNote() {
-    try {
-      const photo = await ui.choosePhoto()
-      if (photo) this.setEditor('note', { id: '', text: '', photo })
-    } catch (error) {
-      ui.report(error)
-    }
+  addNote(event) {
+    const dish = event?.currentTarget.dataset.scope === 'dish' ? this.data.dish : null
+    this.setEditor('note', { id: '', text: '', photo: '', dishId: dish?.id || '', dishTitle: dish?.title || '' })
   },
 
   editEntry(event) {
@@ -988,7 +1190,7 @@ Page({
     if (!entry) return
     const form = kind === 'expense'
       ? { id, amount: entry.amount, shop: entry.shop, photo: entry.photo }
-      : { id, text: entry.text, photo: entry.photo }
+      : { id, text: entry.text, photo: entry.photo, dishId: entry.dishId || '', dishTitle: entry.dishTitle || '' }
     this.setEditor(kind, form)
   },
 
@@ -1093,46 +1295,42 @@ const journal = require('../../lib/journal')
 const ui = require('../../lib/ui')
 
 Page({
-  data: { current: null, weeks: [], start: '', notes: [], nutrition: [], hasContent: false },
+  data: { weeks: [], saving: false },
 
   onShow() {
-    const state = journal.read()
-    const weeks = Object.values(state.weeks)
-      .sort((a, b) => b.start.localeCompare(a.start))
-      .map(week => ({ start: week.start, label: dates.weekLabel(week.start) }))
-    const start = this.data.start || (weeks[0] && weeks[0].start) || dates.monday()
-    this.setData({ weeks })
-    this.refresh(start, state)
-  },
-
-  refresh(start, state = journal.read()) {
-    const current = ui.weekView(journal.week(start, state))
-    const notes = current.notes.map(ui.datedEntry)
-    const hasContent = Boolean(current.batch || current.expenses.length || notes.length)
-    const weekIndex = this.data.weeks.findIndex(week => week.start === start)
+    const { weeks } = journal.read()
     this.setData({
-      start, current, notes, hasContent, weekIndex,
-      nutrition: ui.nutritionParts(current.batch)
+      weeks: Object.values(weeks)
+        .filter(week => week.batch || week.expenses.length || week.notes.length || (week.menu.length && week.start < dates.monday()))
+        .sort((first, second) => second.start.localeCompare(first.start))
+        .map(week => ({
+          ...ui.weekView(week),
+          menuText: week.menu.map(dish => dish.title).join(' · '),
+          notes: week.notes.map(ui.datedEntry),
+          nutrition: ui.nutritionParts(week.batch)
+        }))
     })
-  },
-
-  changeWeek(event) {
-    this.refresh(dates.addDays(this.data.start, 7 * Number(event.currentTarget.dataset.step)))
-  },
-
-  jumpWeek(event) {
-    const selected = this.data.weeks[Number(event.detail.value)]
-    if (selected) this.refresh(selected.start)
   },
 
   previewPhoto: ui.previewPhoto,
 
-  openPrep() {
-    ui.openPrep(this.data.start)
+  openPrep(event) {
+    ui.openPrep(event.currentTarget.dataset.start)
   },
 
-  repeat() {
-    wx.navigateTo({ url: '/pages/schedule/index?copyFrom=' + this.data.start })
+  repeat(event) {
+    return ui.submit(this, async () => {
+      const from = event.currentTarget.dataset.start
+      const to = [dates.nextMonday(), dates.addDays(from, 7)].sort().pop()
+      const current = journal.week(to)
+      if (current.batch) throw new Error('目标周已经分装')
+      if (current.menu.length) {
+        const summary = current.menu.map(dish => dish.title).join('、')
+        if (!await ui.confirm('复做到 ' + dates.weekLabel(to) + '？', '将替换这周的菜单「' + summary + '」。采购和过程记录会保留。', '复做')) return
+      }
+      journal.copyPlan(from, to)
+      ui.openPrep(to)
+    })
   }
 })
 
@@ -1142,172 +1340,92 @@ const journal = require('../../lib/journal')
 const ui = require('../../lib/ui')
 
 Page({
-  data: { recipe: null, rows: [], label: '', total: 0, existingTitle: '', locked: false, saving: false },
+  data: { current: null, rows: [], saving: false, datesOpen: false, name: '' },
 
   onLoad(options) {
-    const state = journal.read()
-    this.editing = Boolean(options.edit)
-    const start = options.edit || options.target || dates.nextMonday()
-    const source = options.copyFrom ? journal.week(options.copyFrom, state) : null
-    const existing = journal.week(start, state)
-    const recipe = source ? source.recipe : (
-      this.editing ? existing.recipe : journal.findRecipe(options.id, state)
-    )
-    if (!recipe) {
-      ui.message('先选一份菜谱')
-      return
-    }
-    const slots = source
-      ? dates.moveSlots(source.slots, source.start, start)
-      : (existing.slots.length ? existing.slots : dates.defaultSlots(start))
-    this.setData({ recipe, editing: this.editing })
-    this.render(start, slots)
-  },
-
-  render(start, slots) {
-    this.slots = slots
-    const existing = journal.week(start)
-    const selected = new Set(slots.map(slot => dates.slotKey(slot.date, slot.meal)))
-    const rows = Array.from({ length: 7 }, (_, offset) => {
-      const date = dates.addDays(start, offset)
-      return {
-        date, label: dates.weekday(date), short: dates.shortDate(date),
-        lunch: selected.has(dates.slotKey(date, 'lunch')),
-        dinner: selected.has(dates.slotKey(date, 'dinner'))
-      }
-    })
+    const start = options.edit || options.target || ui.activeWeek()
+    const current = ui.weekView(journal.week(start))
     this.setData({
-      start, label: dates.weekLabel(start), rows, total: slots.length,
-      existingTitle: existing.recipe ? existing.recipe.title : '',
-      locked: Boolean(existing.batch)
+      start, current, targetBoxes: String(current.targetBoxes), datesOpen: Boolean(current.slots.length)
+    })
+    this.renderSlots(current.slots)
+  },
+
+  refresh() {
+    this.setData({ current: ui.weekView(journal.week(this.data.start)) })
+  },
+
+  renderSlots(slots) {
+    const { start } = this.data
+    this.slots = slots
+    const selected = new Set(slots.map(slot => dates.slotKey(slot.date, slot.meal)))
+    this.setData({
+      rows: Array.from({ length: 7 }, (_, offset) => {
+        const date = dates.addDays(start, offset)
+        return {
+          date, label: dates.weekday(date), short: dates.shortDate(date),
+          lunch: selected.has(dates.slotKey(date, 'lunch')),
+          dinner: selected.has(dates.slotKey(date, 'dinner'))
+        }
+      }),
+      dateCount: slots.length
     })
   },
 
-  changeWeek(event) {
-    if (this.data.saving) return
-    const from = this.data.start
-    const start = dates.addDays(from, 7 * Number(event.currentTarget.dataset.step))
-    this.render(start, dates.moveSlots(this.slots, from, start))
+  boxInput(event) {
+    this.setData({ targetBoxes: event.detail.value })
+  },
+
+  dishInput(event) {
+    this.setData({ name: event.detail.value })
+  },
+
+  addQuickDish() {
+    ui.attempt(() => {
+      journal.addDish(this.data.start, { title: this.data.name })
+      this.setData({ name: '' })
+      this.refresh()
+    })
+  },
+
+  removeDish(event) {
+    ui.attempt(() => journal.removeDish(this.data.start, event.currentTarget.dataset.id))
+    this.refresh()
+  },
+
+  toggleDates() {
+    this.setData({ datesOpen: !this.data.datesOpen })
   },
 
   toggleMeal(event) {
-    if (this.data.saving) return
     const { date, meal } = event.currentTarget.dataset
     const exists = this.slots.some(slot => slot.date === date && slot.meal === meal)
-    const slots = exists
-      ? this.slots.filter(slot => slot.date !== date || slot.meal !== meal)
-      : [...this.slots, { date, meal }]
-    this.render(this.data.start, slots)
+    this.renderSlots(exists ? this.slots.filter(slot => slot.date !== date || slot.meal !== meal)
+      : [...this.slots, { date, meal }])
+  },
+
+  choose() {
+    ui.attempt(() => {
+      journal.setPlan(this.data.start, this.data.targetBoxes, this.slots)
+      ui.openRecipes(this.data.start)
+    })
   },
 
   save() {
     return ui.submit(this, async () => {
-      const { start, recipe } = this.data
-      const existing = journal.week(start)
-      const replace = Boolean(existing.recipe)
-      if (!this.slots.length) throw new Error('至少选一顿要安排的餐')
-      if (existing.batch) throw new Error('这周已分装，请选择其他备餐周')
-      if (replace && !this.editing &&
-        !await ui.confirm('更新这周的安排？', '这周已有「' + existing.recipe.title + '」。已记的采购支出和过程照片会保留。', '更新安排')) return
-      journal.schedule(start, recipe, this.slots, { replace })
-      ui.openPrep(start)
+      journal.setPlan(this.data.start, this.data.targetBoxes, this.slots)
+      ui.openPrep(this.data.start)
     })
   }
 })
 
 },"pages/today/index":function(require,module,exports){
-const dates = require('../../lib/dates')
-const journal = require('../../lib/journal')
 const ui = require('../../lib/ui')
 
 Page({
-  data: {
-    dateLabel: '', start: '', recipe: null, slots: [], stock: {}, next: null,
-    photo: '', isReference: false, busy: false
-  },
-
   onShow() {
-    this.refresh()
-  },
-
-  refresh() {
-    const today = dates.dayKey()
-    const state = journal.read()
-    const start = dates.monday(today)
-    const current = journal.week(start, state)
-    const stock = journal.stockFor(current)
-    const slots = current.slots.filter(slot => slot.date === today).map(slot => ({
-      ...slot,
-      label: dates.mealLabels[slot.meal],
-      eaten: current.eaten.some(entry => entry.date === today && entry.meal === slot.meal)
-    }))
-    const upcoming = Object.values(state.weeks)
-      .flatMap(week => week.slots.filter(slot => slot.date > today).map(slot => ({ ...slot, week })))
-      .sort(dates.compareSlots)[0]
-    const next = upcoming ? {
-      start: upcoming.week.start,
-      date: dates.shortDate(upcoming.date) + ' ' + dates.weekday(upcoming.date),
-      meal: dates.mealLabels[upcoming.meal],
-      recipe: upcoming.week.recipe.title,
-      photo: upcoming.week.recipe.photo
-    } : null
-    const actualPhoto = current.batch && current.batch.photo
-    const photo = actualPhoto || (current.recipe && current.recipe.photo) || ''
-    this.setData({
-      dateLabel: dates.shortDate(today) + ' ' + dates.weekday(today),
-      today, start, recipe: current.recipe, slots, stock, next, photo,
-      isReference: Boolean(photo && !actualPhoto),
-      mealTitle: slots.length === 1 ? '今日' + slots[0].label : '今日餐盒',
-      unready: current.batch ? '这周的餐盒已用完' : '待分装'
-    })
-  },
-
-  openRecipes() {
-    ui.openRecipes()
-  },
-
-  openPlan(event) {
-    ui.openPrep(event.currentTarget.dataset.start || dates.nextMonday())
-  },
-
-  viewRecipe() {
-    wx.navigateTo({ url: '/pages/recipe/index?week=' + this.data.start })
-  },
-
-  previewPhoto: ui.previewPhoto,
-
-  eat(event) {
-    const meal = event.currentTarget.dataset.meal
-    if (this.data.busy) return
-    const { start, today } = this.data
-    const stock = journal.stockFor(journal.week(start))
-    const places = Object.keys(ui.storageLabels).filter(place => stock[place] > 0)
-    if (!places.length) {
-      this.refresh()
-      return
-    }
-    const record = place => {
-      ui.attempt(() => journal.eat(start, today, meal, place))
-      this.refresh()
-    }
-    if (places.length === 1) {
-      record(places[0])
-      return
-    }
-    this.setData({ busy: true })
-    wx.showActionSheet({
-      alertText: '这盒从哪取的？',
-      itemList: places.map(place => ui.storageLabels[place]),
-      success: result => record(places[result.tapIndex]),
-      complete: () => this.setData({ busy: false })
-    })
-  },
-
-  undo(event) {
-    const { start, today } = this.data
-    ui.attempt(() => journal.undoEat(start, today, event.currentTarget.dataset.meal))
-    this.refresh()
+    ui.openPrep()
   }
 })
 
-}},templates:{"pages/prep/index":["root",{},"","",[["import",{"src":"../../templates/shared.wxml"},"","\n",[]],["view",{"wx:if":function($){with($){return (current)}},"class":"screen stack"},"\n  ","\n",[["template",{"is":"week-switch","data":function($){with($){return (({label: current.label}))}}},"","\n  ",[]],["view",{"class":"row between"},"\n    ","\n  ",[["text",{"class":"section-title"},"备餐安排","\n    ",[]],["text",{"wx:if":function($){with($){return (timing)}},"class":"pill"},function($){with($){return (timing)}},"\n  ",[]]]],["view",{"wx:if":function($){with($){return (current.recipe)}},"class":"card"},"\n    ","\n  ",[["view",{"class":"pad row","bindtap":"openRecipe","hover-class":"tap-hover"},"\n      ","\n    ",[["image",{"wx:if":function($){with($){return (current.recipe.photo)}},"class":"thumb","src":function($){with($){return (current.recipe.photo)}},"mode":"aspectFill"},"","\n      ",[]],["view",{"wx:else":"","class":"thumb cover-empty"},"","\n      ",[["view",{"class":"plate-mark"},"","",[]]]],["view",{"class":"grow stack compact"},"\n        ","\n      ",[["text",{"class":"title"},function($){with($){return (current.recipe.title)}},"\n        ",[]],["text",{"class":"small muted"},function($){with($){return (slotSummary)}},"\n        ",[]],["text",{"class":"label"},function($){with($){return ("计划 " + String((current.slots.length) ?? '') + " 盒")}},"\n      ",[]]]],["text",{"class":"chevron"},"","\n    ",[]]]],["view",{"wx:if":function($){with($){return (!current.batch)}},"class":"pad divider row"},"\n      ","\n  ",[["button",{"class":"button button-small button-quiet grow","bindtap":"editPlan"},"调整餐期","\n      ",[]],["button",{"class":"button button-small button-quiet grow","bindtap":"chooseRecipe"},"重新选菜","\n    ",[]]]]]],["view",{"wx:else":"","class":"card soft pad stack"},"\n    ","\n  ",[["text",{"class":"title"},"这周准备做什么？","\n    ",[]],["text",{"class":"body muted"},"选一道菜，再勾选要吃的日期。","\n    ",[]],["button",{"class":"button button-primary","bindtap":"chooseRecipe","hover-class":"tap-hover"},"从菜谱选一道","\n  ",[]]]],["view",{"class":"card"},"\n    ","\n",[["view",{"class":"action-row","bindtap":"openRecords","data-mode":"shop","hover-class":"tap-hover"},"\n      ","\n    ",[["view",{"class":"action-icon"},"采","",[]],["text",{"class":"grow label"},"采购","\n      ",[]],["text",{"class":"label"},function($){with($){return ("¥" + String((current.spent) ?? '') + "")}},"",[]],["text",{"class":"chevron"},"","\n    ",[]]]],["view",{"class":"action-row","bindtap":"openRecords","data-mode":"cook","hover-class":"tap-hover"},"\n      ","\n    ",[["view",{"class":"action-icon"},"记","",[]],["text",{"class":"grow label"},"烹饪记录","\n      ",[]],["text",{"class":"label"},function($){with($){return ("" + String((current.notes.length) ?? '') + " 条")}},"",[]],["text",{"class":"chevron"},"","\n    ",[]]]],["view",{"class":"action-row","bindtap":"openRecords","data-mode":"batch","hover-class":"tap-hover"},"\n      ","\n  ",[["view",{"class":"action-icon"},"盒","",[]],["text",{"class":"grow label"},"分装","\n      ",[]],["text",{"wx:if":function($){with($){return (current.batch)}},"class":"label"},function($){with($){return ("" + String((current.batch.count) ?? '') + " 盒")}},"\n      ",[]],["text",{"wx:else":"","class":"small muted"},"待分装","",[]],["text",{"class":"chevron"},"","\n    ",[]]]]]]]]]],"pages/recipe/edit":["root",{},"","",[["view",{"class":"screen stack"},"\n  ","\n",[["view",{"class":"card pad stack"},"\n    ","\n  ",[["view",{"class":"field"},"\n      ","\n    ",[["text",{"class":"label"},"菜名","\n      ",[]],["input",{"class":"input","data-field":"title","bindinput":"input","value":function($){with($){return (title)}},"maxlength":"48","placeholder":"比如照烧鸡腿糙米饭"},"","\n    ",[]]]],["view",{"class":"field"},"\n      ","\n  ",[["text",{"class":"label"},"参考图片","\n      ",[]],["block",{"wx:if":function($){with($){return (photo)}}},"\n        ","\n      ",[["image",{"class":"cover card","mode":"aspectFill","src":function($){with($){return (photo)}},"bindtap":"previewPhoto","data-photo":function($){with($){return (photo)}}},"","\n        ",[]],["view",{"class":"row"},"\n          ","\n      ",[["button",{"class":"button button-small button-quiet grow","bindtap":"pickPhoto"},"更换图片","\n          ",[]],["button",{"class":"button button-small button-outline","bindtap":"removePhoto"},"移除","\n        ",[]]]]]],["view",{"wx:else":"","class":"upload","bindtap":"pickPhoto","hover-class":"tap-hover"},"＋ 添加参考图","\n    ",[]]]]]],["view",{"class":"card pad stack"},"\n    ","\n  ",[["view",{"class":"field"},"\n      ","\n    ",[["text",{"class":"label"},"食材与用量","\n      ",[]],["textarea",{"class":"textarea textarea-short","data-field":"ingredients","bindinput":"input","value":function($){with($){return (ingredients)}},"maxlength":"1500","placeholder":"一行写一种食材，例如「鸡腿 600 g」"},"","\n    ",[]]]],["view",{"class":"field"},"\n      ","\n  ",[["text",{"class":"label"},"做法","\n      ",[]],["textarea",{"class":"textarea","data-field":"method","bindinput":"input","value":function($){with($){return (method)}},"maxlength":"6000","placeholder":"粘贴或写下步骤、用时和调味"},"","\n    ",[]]]]]],["button",{"class":"button button-primary","bindtap":"save","disabled":function($){with($){return (saving)}},"loading":function($){with($){return (saving)}},"hover-class":"tap-hover"},"保存菜谱","\n",[]]]]]],"pages/recipe/index":["root",{},"","",[["view",{"wx:if":function($){with($){return (recipe)}},"class":"screen stack"},"\n  ","\n",[["view",{"class":"row between"},"\n    ","\n  ",[["text",{"class":"title grow"},function($){with($){return (recipe.title)}},"\n    ",[]],["button",{"wx:if":function($){with($){return (!isSnapshot && !isRecommendation)}},"class":"button button-small button-quiet","bindtap":"editRecipe"},"编辑","\n  ",[]]]],["view",{"wx:if":function($){with($){return (recipe.photo)}},"class":"card relative"},"\n    ","\n  ",[["image",{"class":"cover cover-tall","mode":"aspectFill","src":function($){with($){return (recipe.photo)}},"bindtap":"previewPhoto","data-photo":function($){with($){return (recipe.photo)}}},"","\n    ",[]],["text",{"class":"caption"},function($){with($){return (photoCredit ? '实拍参考' : '参考图')}},"\n  ",[]]]],["view",{"wx:if":function($){with($){return (recipe.servings)}},"class":"card soft pad stack compact"},"\n    ","\n  ",[["view",{"class":"row"},"\n      ","\n    ",[["text",{"class":"pill"},function($){with($){return ("备餐 " + String((recipe.servings) ?? '') + " 份")}},"\n      ",[]],["text",{"class":"small muted"},function($){with($){return ("约 " + String((recipe.minutes) ?? '') + " 分钟")}},"\n    ",[]]]],["text",{"class":"body"},function($){with($){return (recipe.summary)}},"\n    ",[]],["text",{"class":"small muted"},function($){with($){return (recipe.pairing)}},"\n  ",[]]]],["view",{"wx:if":function($){with($){return (isRecommendation)}},"class":"recipe-actions"},"\n    ","\n  ",[["button",{"class":"button button-primary grow","bindtap":"schedule","hover-class":"tap-hover"},function($){with($){return (targetLabel ? '安排到所选周' : '排到下周')}},"\n    ",[]],["button",{"class":"button button-outline","bindtap":"collect","disabled":function($){with($){return (collected)}},"hover-class":"tap-hover"},function($){with($){return (collected ? '已收藏' : '收藏菜谱')}},"\n  ",[]]]],["view",{"wx:if":function($){with($){return (recipe.ingredients.length)}},"class":"card pad stack compact"},"\n    ","\n  ",[["text",{"class":"section-title"},"食材","\n    ",[]],["view",{"wx:for":function($){with($){return (recipe.ingredients)}},"wx:key":"name","class":"row between"},"\n      ","\n  ",[["text",{"class":"body grow"},function($){with($){return (item.name)}},"\n      ",[]],["text",{"class":"small muted"},function($){with($){return (item.amount)}},"\n    ",[]]]]]],["view",{"class":"card pad stack compact"},"\n    ","\n  ",[["text",{"class":"section-title"},"做法","\n    ",[]],["text",{"wx:if":function($){with($){return (recipe.method)}},"class":"note"},function($){with($){return (recipe.method)}},"\n    ",[]],["text",{"wx:else":"","class":"muted"},"待补充","\n  ",[]]]],["view",{"wx:if":function($){with($){return (recipe.source || photoCredit)}},"class":"card"},"\n    ","\n  ",[["view",{"wx:if":function($){with($){return (recipe.source)}},"class":"action-row","bindtap":"copySource","data-kind":"recipe","hover-class":"tap-hover"},"\n      ","\n    ",[["view",{"class":"grow stack compact"},"\n        ","\n      ",[["text",{"class":"label"},"参考做法","\n        ",[]],["text",{"class":"small muted"},function($){with($){return (recipe.source.name)}},"\n      ",[]]]],["text",{"class":"small muted"},"复制网址","\n    ",[]]]],["view",{"wx:if":function($){with($){return (photoCredit)}},"class":"action-row","bindtap":"copySource","data-kind":"photo","hover-class":"tap-hover"},"\n      ","\n  ",[["view",{"class":"grow stack compact"},"\n        ","\n      ",[["text",{"class":"label"},"照片来源","\n        ",[]],["text",{"class":"small muted"},function($){with($){return (photoCredit.name)}},"\n      ",[["text",{"wx:if":function($){with($){return (photoCredit.note)}}},function($){with($){return (" · " + String((photoCredit.note) ?? '') + "")}},"",[]]]]]],["text",{"class":"small muted"},"复制网址","\n    ",[]]]]]],["button",{"wx:if":function($){with($){return (!isSnapshot && !isRecommendation)}},"class":"button button-primary","bindtap":"schedule","hover-class":"tap-hover"},function($){with($){return (targetLabel ? '安排到所选周' : '排到下周')}},"\n",[]]]],["view",{"wx:elif":function($){with($){return (ready)}},"class":"screen"},"","\n",[["view",{"class":"card empty-text muted"},"找不到这份菜谱","",[]]]]]],"pages/recipes/index":["root",{},"","",[["view",{"class":"screen stack"},"\n  ","\n",[["view",{"class":"row between"},"\n    ","\n  ",[["text",{"class":"heading"},"菜谱","\n    ",[]],["button",{"class":"button button-primary button-small","bindtap":"addRecipe","hover-class":"tap-hover"},"＋ 新增菜谱","\n  ",[]]]],["text",{"wx:if":function($){with($){return (targetLabel)}},"class":"small muted"},function($){with($){return ("为 " + String((targetLabel) ?? '') + " 选一道菜")}},"\n  ",[]],["view",{"class":"recipe-tabs"},"\n    ","\n  ",[["button",{"class":function($){with($){return ("button button-small " + String((tab === 'mine' ? 'recipe-tab-active' : '') ?? '') + "")}},"data-tab":"mine","aria-pressed":function($){with($){return (tab === 'mine')}},"bindtap":"changeTab"},"我的菜谱","\n    ",[]],["button",{"class":function($){with($){return ("button button-small " + String((tab === 'recommended' ? 'recipe-tab-active' : '') ?? '') + "")}},"data-tab":"recommended","aria-pressed":function($){with($){return (tab === 'recommended')}},"bindtap":"changeTab"},"推荐菜谱","\n  ",[]]]],["input",{"wx:if":function($){with($){return (total)}},"class":"input search","type":"text","placeholder":"搜菜名或食材","value":function($){with($){return (query)}},"bindinput":"search","confirm-type":"search"},"","\n  ",[]],["view",{"wx:if":function($){with($){return (recipes.length)}},"class":"list-images"},"\n    ","\n  ",[["view",{"wx:for":function($){with($){return (recipes)}},"wx:key":"id","class":"card","bindtap":"openRecipe","data-id":function($){with($){return (item.id)}},"hover-class":"tap-hover"},"\n      ","\n  ",[["image",{"wx:if":function($){with($){return (item.photo)}},"class":"cover library-cover","mode":"aspectFill","src":function($){with($){return (item.photo)}}},"","\n      ",[]],["view",{"wx:else":"","class":"cover library-cover cover-empty"},"","\n      ",[["view",{"class":"plate-mark"},"","",[]]]],["view",{"class":"library-card"},"\n        ","\n    ",[["view",{"class":"label"},function($){with($){return (item.title)}},"\n        ",[]],["text",{"wx:if":function($){with($){return (tab === 'recommended')}},"class":"small muted recipe-time"},function($){with($){return ("约 " + String((item.minutes) ?? '') + " 分钟 · " + String((item.servings) ?? '') + " 份")}},"\n      ",[]]]]]]]],["view",{"wx:elif":function($){with($){return (total)}},"class":"card empty-text"},"\n    ","\n  ",[["text",{"class":"muted"},"没找到对应的菜谱","\n  ",[]]]],["view",{"wx:else":"","class":"card empty-text"},"\n    ","\n",[["text",{"class":"section-title"},"收藏想做的饭","\n    ",[]],["text",{"class":"body muted"},"把参考图和做法存下来，周末挑一道排到下周。","\n  ",[]]]]]]]],"pages/records/index":["root",{},"","",[["import",{"src":"../../templates/shared.wxml"},"","\n",[]],["view",{"wx:if":function($){with($){return (current)}},"class":"screen stack"},"\n  ","\n",[["text",{"class":"small muted"},function($){with($){return (current.label)}},"\n  ",[["text",{"wx:if":function($){with($){return (current.recipe)}}},function($){with($){return (" · " + String((current.recipe.title) ?? '') + "")}},"",[]]]],["block",{"wx:if":function($){with($){return (mode === 'shop')}}},"\n    ","\n  ",[["view",{"class":"card pad soft stack compact"},"\n      ","\n    ",[["text",{"class":"label"},"本周实付","\n      ",[]],["text",{"class":"number number-major"},function($){with($){return ("¥" + String((current.spent) ?? '') + "")}},"\n    ",[]]]],["button",{"wx:if":function($){with($){return (!editor)}},"class":"button button-primary","bindtap":"addExpense","hover-class":"tap-hover"},"＋ 记一笔","\n  ",[]]]],["view",{"wx:if":function($){with($){return (mode === 'cook' && !editor)}},"class":"two-up"},"\n    ","\n\n  ",[["button",{"class":"button button-primary","bindtap":"newPhotoNote","hover-class":"tap-hover"},"拍一张","\n    ",[]],["button",{"class":"button button-quiet","bindtap":"addNote","hover-class":"tap-hover"},"写一句","\n  ",[]]]],["view",{"wx:if":function($){with($){return (editor)}},"class":"card pad stack"},"\n    ","\n\n  ",[["text",{"class":"section-title"},function($){with($){return (editor === 'shopping' ? '添加食材' : (editor === 'expense' ? '采购支出' : '过程记录'))}},"\n    ",[]],["block",{"wx:if":function($){with($){return (editor === 'expense')}}},"\n      ","\n    ",[["view",{"class":"field"},"\n        ","\n      ",[["text",{"class":"label"},"实付金额（元）","\n        ",[]],["input",{"class":"input","type":"digit","value":function($){with($){return (form.amount)}},"data-model":"form","data-field":"amount","bindinput":"fieldInput","placeholder":"0.00"},"","\n      ",[]]]],["view",{"class":"field"},"\n        ","\n    ",[["text",{"class":"label"},"店名","\n        ",[]],["input",{"class":"input","maxlength":"48","value":function($){with($){return (form.shop)}},"data-model":"form","data-field":"shop","bindinput":"fieldInput","placeholder":"选填"},"","\n      ",[]]]]]],["block",{"wx:elif":function($){with($){return (editor === 'shopping')}}},"\n      ","\n    ",[["view",{"class":"field"},"\n        ","\n      ",[["text",{"class":"label"},"食材","\n        ",[]],["input",{"class":"input","maxlength":"48","value":function($){with($){return (form.name)}},"data-model":"form","data-field":"name","bindinput":"fieldInput","placeholder":"例如柠檬"},"","\n      ",[]]]],["view",{"class":"field"},"\n        ","\n    ",[["text",{"class":"label"},"用量","\n        ",[]],["input",{"class":"input","maxlength":"32","value":function($){with($){return (form.amount)}},"data-model":"form","data-field":"amount","bindinput":"fieldInput","placeholder":"选填"},"","\n      ",[]]]]]],["textarea",{"wx:else":"","class":"textarea textarea-short","maxlength":"1500","value":function($){with($){return (form.text)}},"data-model":"form","data-field":"text","bindinput":"fieldInput","placeholder":"写下这次做了什么，或下次想怎么调"},"","\n\n    ",[]],["block",{"wx:if":function($){with($){return (editor !== 'shopping')}}},"\n      ","\n\n    ",[["view",{"wx:if":function($){with($){return (form.photo)}},"class":"stack compact"},"\n        ","\n      ",[["image",{"class":"timeline-image","mode":"aspectFill","src":function($){with($){return (form.photo)}},"data-photo":function($){with($){return (form.photo)}},"bindtap":"previewPhoto"},"","\n        ",[]],["view",{"class":"row"},"\n          ","\n      ",[["button",{"class":"button button-small button-quiet grow","bindtap":"pickPhoto","data-model":"form"},"更换照片","\n          ",[]],["button",{"class":"button button-small button-outline","bindtap":"clearPhoto","data-model":"form"},"移除","\n        ",[]]]]]],["view",{"wx:else":"","class":"upload","bindtap":"pickPhoto","data-model":"form","hover-class":"tap-hover"},function($){with($){return (editor === 'expense' ? '＋ 添加小票照片' : '＋ 添加过程照片')}},"\n    ",[]]]],["view",{"class":"row"},"\n      ","\n    ",[["button",{"class":"button button-quiet","bindtap":"cancelEdit","disabled":function($){with($){return (saving)}}},"取消","\n      ",[]],["button",{"class":"button button-primary grow","bindtap":"saveEntry","disabled":function($){with($){return (saving)}},"loading":function($){with($){return (saving)}}},"保存","\n    ",[]]]],["button",{"wx:if":function($){with($){return (form.id)}},"class":"button button-small button-danger","bindtap":"deleteEntry","disabled":function($){with($){return (saving)}}},"删除记录","\n  ",[]]]],["block",{"wx:if":function($){with($){return (mode === 'shop')}}},"\n    ","\n\n  ",[["view",{"class":"row between"},"\n      ","\n    ",[["text",{"class":"section-title"},"采购清单","\n      ",[]],["button",{"wx:if":function($){with($){return (!editor)}},"class":"button button-small button-quiet","bindtap":"addShopping"},"＋ 食材","\n    ",[]]]],["view",{"class":"card"},"\n      ","\n    ",[["view",{"wx:for":function($){with($){return (shopping)}},"wx:key":"id","class":"action-row","bindtap":"changeShoppingStatus","data-id":function($){with($){return (item.id)}},"hover-class":"tap-hover"},"\n        ","\n      ",[["view",{"class":"grow stack compact"},"\n          ","\n        ",[["text",{"class":"label"},function($){with($){return (item.name)}},"",[]],["text",{"wx:if":function($){with($){return (item.amount)}},"class":"small muted"},function($){with($){return (item.amount)}},"\n        ",[]]]],["text",{"class":function($){with($){return ("pill " + String((item.status === 'at-home' ? 'pill-blue' : (item.status === 'todo' ? 'pill-neutral' : '')) ?? '') + "")}}},function($){with($){return (item.statusLabel)}},"\n      ",[]]]],["view",{"wx:if":function($){with($){return (!shopping.length)}},"class":"empty-text muted"},"选好菜谱后带入食材，也可以手动加。","\n    ",[]]]],["text",{"class":"section-title"},"支出记录","\n    ",[]],["view",{"class":"card"},"\n      ","\n  ",[["view",{"wx:for":function($){with($){return (expenses)}},"wx:key":"id","class":"action-row","bindtap":"editEntry","data-id":function($){with($){return (item.id)}},"data-kind":"expense","hover-class":"tap-hover"},"\n        ","\n      ",[["image",{"wx:if":function($){with($){return (item.photo)}},"class":"expense-thumb","mode":"aspectFill","src":function($){with($){return (item.photo)}}},"","\n        ",[]],["view",{"class":"grow stack compact"},"\n          ","\n        ",[["text",{"class":"label"},function($){with($){return ("¥" + String((item.amount) ?? '') + "")}},"\n          ",[]],["text",{"class":"small muted"},function($){with($){return (item.day)}},"\n        ",[["text",{"wx:if":function($){with($){return (item.shop)}}},function($){with($){return (" · " + String((item.shop) ?? '') + "")}},"",[]]]]]],["text",{"class":"chevron"},"","\n      ",[]]]],["view",{"wx:if":function($){with($){return (!expenses.length)}},"class":"empty-text muted"},"结账后，记下实际花了多少。","\n    ",[]]]]]],["block",{"wx:if":function($){with($){return (mode === 'cook')}}},"\n    ","\n\n  ",[["view",{"wx:if":function($){with($){return (notes.length)}},"class":"timeline"},"\n      ","\n    ",[["view",{"wx:for":function($){with($){return (notes)}},"wx:key":"id","class":"timeline-item"},"\n        ","\n    ",[["view",{"class":"card pad stack compact"},"\n          ","\n      ",[["view",{"class":"row between"},"\n            ","\n          ",[["text",{"class":"small muted"},function($){with($){return ("" + String((item.day) ?? '') + " · " + String((item.time) ?? '') + "")}},"\n            ",[]],["button",{"class":"button button-small button-quiet","bindtap":"editEntry","data-id":function($){with($){return (item.id)}},"data-kind":"note"},"编辑","\n          ",[]]]],["text",{"wx:if":function($){with($){return (item.text)}},"class":"note"},function($){with($){return (item.text)}},"\n          ",[]],["image",{"wx:if":function($){with($){return (item.photo)}},"class":"timeline-image","mode":"aspectFill","src":function($){with($){return (item.photo)}},"data-photo":function($){with($){return (item.photo)}},"bindtap":"previewPhoto"},"","\n        ",[]]]]]]]],["view",{"wx:elif":function($){with($){return (!editor)}},"class":"card empty-text"},"\n      ","\n  ",[["text",{"class":"section-title"},"记下这次怎么做的","\n      ",[]],["text",{"class":"body muted"},"拍一张腌制或出炉的照片，或者记一句下次想调整的地方。","\n    ",[]]]]]],["block",{"wx:if":function($){with($){return (mode === 'batch' && current.recipe)}}},"\n    ","\n",[["view",{"class":"card pad stack"},"\n      ","\n    ",[["text",{"class":"section-title"},function($){with($){return ("计划 " + String((current.slots.length) ?? '') + " 盒")}},"\n      ",[]],["view",{"wx:for":function($){with($){return (storageFields)}},"wx:key":"field","class":"row between counter-row"},"\n        ","\n      ",[["text",{"class":"label"},function($){with($){return (item.label)}},"\n        ",[]],["template",{"is":"stepper","data":function($){with($){return (({field: item.field, label: item.label, value: batch[item.field]}))}}},"","\n      ",[]]]],["text",{"wx:if":function($){with($){return (difference > 0)}},"class":"small muted"},function($){with($){return ("还有 " + String((difference) ?? '') + " 盒待填写存放方式")}},"\n      ",[]],["text",{"wx:elif":function($){with($){return (0 > difference)}},"class":"small hint-error"},"存放盒数超过实际盒数","\n    ",[]]]],["view",{"class":"card pad stack"},"\n      ","\n    ",[["text",{"class":"section-title"},"成品照","\n      ",[]],["block",{"wx:if":function($){with($){return (batch.photo)}}},"\n        ","\n      ",[["image",{"class":"cover card","mode":"aspectFill","src":function($){with($){return (batch.photo)}},"data-photo":function($){with($){return (batch.photo)}},"bindtap":"previewPhoto"},"","\n        ",[]],["view",{"class":"row"},"\n          ","\n      ",[["button",{"class":"button button-small button-quiet grow","bindtap":"pickPhoto","data-model":"batch"},"更换照片","\n          ",[]],["button",{"class":"button button-small button-outline","bindtap":"clearPhoto","data-model":"batch"},"移除","\n        ",[]]]]]],["view",{"wx:else":"","class":"upload","bindtap":"pickPhoto","data-model":"batch","hover-class":"tap-hover"},"＋ 拍成品","\n    ",[]]]],["view",{"class":"card"},"\n      ","\n    ",[["view",{"class":"action-row","bindtap":"toggleNutrition","hover-class":"tap-hover"},"\n        ","\n      ",[["text",{"class":"grow label"},"营养选填","",[]],["text",{"class":function($){with($){return ("chevron " + String((nutritionOpen ? 'chevron-down' : '') ?? '') + "")}}},"","\n      ",[]]]],["view",{"wx:if":function($){with($){return (nutritionOpen)}},"class":"pad divider stack"},"\n        ","\n    ",[["view",{"class":"field"},"\n          ","\n        ",[["text",{"class":"label"},"每盒重量（g）","\n          ",[]],["input",{"class":"input","type":"digit","value":function($){with($){return (batch.weight)}},"data-model":"batch","data-field":"weight","bindinput":"fieldInput","placeholder":"选填"},"","\n        ",[]]]],["view",{"class":"field"},"\n          ","\n        ",[["text",{"class":"label"},"每盒热量（kcal）","\n          ",[]],["input",{"class":"input","type":"digit","value":function($){with($){return (batch.calories)}},"data-model":"batch","data-field":"calories","bindinput":"fieldInput","placeholder":"选填"},"","\n        ",[]]]],["view",{"class":"field"},"\n          ","\n      ",[["text",{"class":"label"},"每盒蛋白质（g）","\n          ",[]],["input",{"class":"input","type":"digit","value":function($){with($){return (batch.protein)}},"data-model":"batch","data-field":"protein","bindinput":"fieldInput","placeholder":"选填"},"","\n        ",[]]]]]]]],["button",{"class":"button button-primary","bindtap":"saveBatch","disabled":function($){with($){return (saving || difference !== 0 || !batch.count)}},"loading":function($){with($){return (saving)}},"hover-class":"tap-hover"},function($){with($){return ("保存 " + String((batch.count) ?? '') + " 盒")}},"\n  ",[]]]]]]]],"pages/review/index":["root",{},"","",[["import",{"src":"../../templates/shared.wxml"},"","\n",[]],["view",{"wx:if":function($){with($){return (current)}},"class":"screen stack"},"\n  ","\n",[["template",{"is":"week-switch","data":function($){with($){return (({label: current.label}))}}},"","\n  ",[]],["picker",{"wx:if":function($){with($){return (weeks.length > 1)}},"range":function($){with($){return (weeks)}},"range-key":"label","value":function($){with($){return (0 > weekIndex ? 0 : weekIndex)}},"bindchange":"jumpWeek"},"\n    ","\n  ",[["view",{"class":"row between card action-row"},"\n      ","\n  ",[["text",{"class":"label"},"跳到有记录的周","",[]],["text",{"class":"chevron chevron-down"},"","\n    ",[]]]]]],["view",{"wx:if":function($){with($){return (current.recipe || hasContent)}},"class":"card"},"\n    ","\n  ",[["view",{"wx:if":function($){with($){return (current.batch && current.batch.photo)}},"class":"relative"},"\n      ","\n    ",[["image",{"class":"cover cover-tall","mode":"aspectFill","src":function($){with($){return (current.batch.photo)}},"bindtap":"previewPhoto","data-photo":function($){with($){return (current.batch.photo)}}},"","\n      ",[]],["text",{"class":"caption"},"本周成品","\n    ",[]]]],["view",{"class":"pad stack"},"\n      ","\n  ",[["text",{"class":"title"},function($){with($){return (current.recipe ? current.recipe.title : '这周的记录')}},"\n      ",[]],["view",{"class":"stats"},"\n        ","\n      ",[["view",{"class":"stat"},"","\n        ",[["text",{"class":"small muted"},"计划","",[]],["view",{"class":"stat-value"},function($){with($){return ("" + String((current.slots.length) ?? '') + " 盒")}},"",[]]]],["view",{"class":"stat"},"","\n        ",[["text",{"class":"small muted"},"实做","",[]],["view",{"class":"stat-value"},function($){with($){return ("" + String((current.batch ? current.batch.count : 0) ?? '') + " 盒")}},"",[]]]],["view",{"class":"stat"},"","\n        ",[["text",{"class":"small muted"},"已吃","",[]],["view",{"class":"stat-value"},function($){with($){return ("" + String((current.eaten.length) ?? '') + " 盒")}},"",[]]]],["view",{"class":"stat"},"","\n      ",[["text",{"class":"small muted"},"支出","",[]],["view",{"class":"stat-value"},function($){with($){return ("¥" + String((current.spent) ?? '') + "")}},"",[]]]]]],["view",{"wx:if":function($){with($){return (nutrition.length)}},"class":"divider nutrition-summary"},"\n        ","\n    ",[["text",{"class":"small muted"},"每盒","\n        ",[]],["text",{"wx:for":function($){with($){return (nutrition)}},"wx:key":"key","class":"pill pill-neutral"},function($){with($){return ("" + String((item.label) ?? '') + " " + String((item.value) ?? '') + " " + String((item.unit) ?? '') + "")}},"\n      ",[]]]]]]]],["view",{"wx:else":"","class":"card empty-text"},"\n    ","\n  ",[["text",{"class":"section-title"},"这周还没有记录","\n    ",[]],["button",{"class":"button button-quiet","bindtap":"openPrep","hover-class":"tap-hover"},"去备餐","\n  ",[]]]],["button",{"wx:if":function($){with($){return (current.recipe)}},"class":"button button-primary","bindtap":"repeat","hover-class":"tap-hover"},"再做一次","\n  ",[]],["view",{"wx:if":function($){with($){return (notes.length)}},"class":"stack"},"\n    ","\n",[["text",{"class":"section-title"},"烹饪记录","\n    ",[]],["view",{"class":"timeline"},"\n      ","\n  ",[["view",{"wx:for":function($){with($){return (notes)}},"wx:key":"id","class":"timeline-item"},"\n        ","\n    ",[["view",{"class":"card pad stack compact"},"\n          ","\n      ",[["text",{"class":"small muted"},function($){with($){return ("" + String((item.day) ?? '') + " · " + String((item.time) ?? '') + "")}},"\n          ",[]],["text",{"wx:if":function($){with($){return (item.text)}},"class":"note"},function($){with($){return (item.text)}},"\n          ",[]],["image",{"wx:if":function($){with($){return (item.photo)}},"class":"timeline-image","mode":"aspectFill","src":function($){with($){return (item.photo)}},"data-photo":function($){with($){return (item.photo)}},"bindtap":"previewPhoto"},"","\n        ",[]]]]]]]]]]]]]],"pages/schedule/index":["root",{},"","",[["import",{"src":"../../templates/shared.wxml"},"","\n",[]],["view",{"wx:if":function($){with($){return (recipe)}},"class":"screen stack"},"\n  ","\n",[["view",{"class":"card pad row"},"\n    ","\n  ",[["image",{"wx:if":function($){with($){return (recipe.photo)}},"class":"thumb thumb-mini","src":function($){with($){return (recipe.photo)}},"mode":"aspectFill"},"","\n    ",[]],["view",{"wx:else":"","class":"thumb thumb-mini cover-empty"},"","\n    ",[["view",{"class":"plate-mark"},"","",[]]]],["view",{"class":"grow stack compact"},"\n      ","\n  ",[["text",{"class":"title"},function($){with($){return (recipe.title)}},"\n      ",[]],["text",{"class":"small muted"},function($){with($){return ("一道菜谱 · 计划 " + String((total) ?? '') + " 盒")}},"\n    ",[]]]]]],["view",{"wx:if":function($){with($){return (editing)}},"class":"week-date"},function($){with($){return (label)}},"\n  ",[]],["template",{"wx:else":"","is":"week-switch","data":function($){with($){return (({label: label}))}}},"","\n  ",[]],["view",{"wx:if":function($){with($){return (locked)}},"class":"card pad small hint-error"},"这周已分装。请选择其他备餐周。","\n  ",[]],["view",{"wx:elif":function($){with($){return (existingTitle && !editing)}},"class":"card pad small muted"},function($){with($){return ("这周已安排 " + String((existingTitle) ?? '') + "")}},"\n  ",[]],["view",{"class":"card"},"\n    ","\n  ",[["view",{"wx:for":function($){with($){return (rows)}},"wx:key":"date","class":"slot-row"},"\n      ","\n  ",[["view",{"class":"slot-day"},"\n        ","\n      ",[["text",{"class":"label"},function($){with($){return (item.label)}},"\n        ",[]],["text",{"class":"small muted"},function($){with($){return ("　" + String((item.short) ?? '') + "")}},"\n      ",[]]]],["button",{"class":function($){with($){return ("slot-choice " + String((item.lunch ? 'slot-choice-active' : '') ?? '') + "")}},"bindtap":"toggleMeal","data-date":function($){with($){return (item.date)}},"data-meal":"lunch","aria-label":function($){with($){return ("" + String((item.label) ?? '') + "午餐")}}},function($){with($){return (item.lunch ? '✓ 午餐' : '午餐')}},"\n      ",[]],["button",{"class":function($){with($){return ("slot-choice " + String((item.dinner ? 'slot-choice-active' : '') ?? '') + "")}},"bindtap":"toggleMeal","data-date":function($){with($){return (item.date)}},"data-meal":"dinner","aria-label":function($){with($){return ("" + String((item.label) ?? '') + "晚餐")}}},function($){with($){return (item.dinner ? '✓ 晚餐' : '晚餐')}},"\n    ",[]]]]]],["button",{"class":"button button-primary","bindtap":"save","loading":function($){with($){return (saving)}},"disabled":function($){with($){return (saving || locked || !total)}},"hover-class":"tap-hover"},function($){with($){return ("确认排餐 · " + String((total) ?? '') + " 盒")}},"\n",[]]]]]],"pages/today/index":["root",{},"","",[["view",{"class":"screen stack"},"\n  ","\n",[["text",{"class":"small muted"},function($){with($){return (dateLabel)}},"\n  ",[]],["block",{"wx:if":function($){with($){return (slots.length)}}},"\n    ","\n  ",[["view",{"class":"heading"},function($){with($){return (mealTitle)}},"\n    ",[]],["view",{"class":"card"},"\n      ","\n    ",[["view",{"wx:if":function($){with($){return (photo)}},"class":"relative"},"\n        ","\n      ",[["image",{"class":"cover cover-tall","mode":"aspectFill","src":function($){with($){return (photo)}},"data-photo":function($){with($){return (photo)}},"bindtap":"previewPhoto"},"","\n        ",[]],["text",{"wx:if":function($){with($){return (isReference)}},"class":"caption"},"菜谱参考图","\n      ",[]]]],["view",{"class":"pad stack"},"\n        ","\n    ",[["view",{"class":"row between","bindtap":"viewRecipe","hover-class":"tap-hover"},"\n          ","\n        ",[["text",{"class":"title grow"},function($){with($){return (recipe.title)}},"\n          ",[]],["text",{"class":"chevron"},"","\n        ",[]]]],["view",{"wx:if":function($){with($){return (stock.total)}},"class":"row wrap-stock"},"\n          ","\n      ",[["text",{"class":"label"},function($){with($){return ("剩 " + String((stock.total) ?? '') + " 盒")}},"\n          ",[]],["text",{"class":"pill pill-blue"},function($){with($){return ("冷藏 " + String((stock.chilled) ?? '') + "")}},"\n          ",[]],["text",{"class":"pill pill-blue"},function($){with($){return ("冷冻 " + String((stock.frozen) ?? '') + "")}},"\n        ",[]]]]]]]],["view",{"wx:for":function($){with($){return (slots)}},"wx:key":"meal","class":"stack compact"},"\n      ","\n  ",[["text",{"wx:if":function($){with($){return (slots.length > 1)}},"class":"label"},function($){with($){return (item.label)}},"\n      ",[]],["view",{"wx:if":function($){with($){return (item.eaten)}},"class":"card pad row between"},"\n        ","\n      ",[["text",{"class":"status-line"},"已吃","\n        ",[]],["button",{"class":"button button-small button-quiet","bindtap":"undo","data-meal":function($){with($){return (item.meal)}}},"撤回","\n      ",[]]]],["button",{"wx:elif":function($){with($){return (stock.total)}},"class":"button button-primary","bindtap":"eat","data-meal":function($){with($){return (item.meal)}},"disabled":function($){with($){return (busy)}},"hover-class":"tap-hover"},"记为已吃","\n      ",[]],["view",{"wx:else":"","class":"card pad muted"},function($){with($){return (unready)}},"\n    ",[]]]]]],["block",{"wx:elif":function($){with($){return (next)}}},"\n    ","\n  ",[["view",{"class":"heading"},"下次吃什么","\n    ",[]],["view",{"class":"card","bindtap":"openPlan","data-start":function($){with($){return (next.start)}},"hover-class":"tap-hover"},"\n      ","\n  ",[["view",{"wx:if":function($){with($){return (next.photo)}},"class":"relative"},"\n        ","\n      ",[["image",{"class":"cover cover-tall","mode":"aspectFill","src":function($){with($){return (next.photo)}}},"","\n        ",[]],["text",{"class":"caption"},"菜谱参考图","\n      ",[]]]],["view",{"class":"pad row between"},"\n        ","\n    ",[["view",{"class":"grow stack compact"},"\n          ","\n        ",[["text",{"class":"small muted"},function($){with($){return ("" + String((next.date) ?? '') + " · " + String((next.meal) ?? '') + "")}},"\n          ",[]],["text",{"class":"title"},function($){with($){return (next.recipe)}},"\n        ",[]]]],["text",{"class":"chevron"},"","\n      ",[]]]]]]]],["block",{"wx:else":""},"\n    ","\n",[["view",{"class":"heading"},"下周吃什么？","\n    ",[]],["view",{"class":"card"},"\n      ","\n  ",[["image",{"class":"cover cover-tall","mode":"aspectFill","src":"/assets/welcome.jpg"},"","\n      ",[]],["view",{"class":"pad stack"},"\n        ","\n    ",[["text",{"class":"title"},"存下想做的菜","\n        ",[]],["text",{"class":"body muted"},"选一道喜欢的菜谱，一次做好几盒，下周慢慢吃。","\n        ",[]],["button",{"class":"button button-primary","bindtap":"openRecipes","hover-class":"tap-hover"},"去菜谱","\n      ",[]]]]]]]]]]]],"templates/shared":["root",{},"","",[["template",{"name":"week-switch"},"\n  ","\n\n",[["view",{"class":"week-switch"},"\n    ","\n",[["button",{"aria-label":"上一周","hover-class":"tap-hover","bindtap":"changeWeek","data-step":"-1"},"","\n    ",[["text",{"class":"chevron chevron-left"},"","",[]]]],["text",{"class":"week-date"},function($){with($){return (label)}},"\n    ",[]],["button",{"aria-label":"下一周","hover-class":"tap-hover","bindtap":"changeWeek","data-step":"1"},"","\n  ",[["text",{"class":"chevron"},"","",[]]]]]]]],["template",{"name":"stepper"},"\n  ","\n",[["view",{"class":"stepper"},"\n    ","\n",[["button",{"aria-label":function($){with($){return ("减少" + String((label) ?? '') + "")}},"disabled":function($){with($){return (0 >= value)}},"bindtap":"step","data-field":function($){with($){return (field)}},"data-step":"-1"},"−","\n    ",[]],["text",{"class":"stepper-value"},function($){with($){return (value)}},"\n    ",[]],["button",{"aria-label":function($){with($){return ("增加" + String((label) ?? '') + "")}},"disabled":function($){with($){return (value >= 99)}},"bindtap":"step","data-field":function($){with($){return (field)}},"data-step":"1"},"＋","\n  ",[]]]]]]]]}};
+}},templates:{"pages/prep/index":["root",{},"","",[["view",{"wx:if":function($){with($){return (current)}},"class":"screen stack prep-screen"},"\n  ","\n",[["view",{"class":"row between"},"\n    ","\n  ",[["text",{"class":"label"},"周末备餐","\n    ",[]],["view",{"class":"row tight"},"\n      ","\n  ",[["button",{"class":function($){with($){return ("week-chip " + String((start === thisWeek ? 'week-chip-active' : '') ?? '') + "")}},"data-start":function($){with($){return (thisWeek)}},"bindtap":"selectWeek"},"本周","\n      ",[]],["button",{"class":function($){with($){return ("week-chip " + String((start === nextWeek ? 'week-chip-active' : '') ?? '') + "")}},"data-start":function($){with($){return (nextWeek)}},"bindtap":"selectWeek"},"下周","\n    ",[]]]]]],["view",{"class":"stack compact"},"\n    ","\n  ",[["text",{"class":"heading"},function($){with($){return (timing)}},"\n    ",[]],["text",{"class":"small muted"},function($){with($){return (current.label)}},"\n  ",[]]]],["view",{"class":"relative meal-hero"},"\n    ","\n  ",[["image",{"class":"cover","mode":"aspectFill","src":function($){with($){return (cover)}},"aria-label":"查看餐盒照片","data-photo":function($){with($){return (cover)}},"bindtap":"previewPhoto"},"","\n    ",[]],["text",{"wx:if":function($){with($){return (!(current.batch && current.batch.photo))}},"class":"caption"},"餐盒参考图","\n  ",[]]]],["view",{"class":"row between"},"\n    ","\n  ",[["text",{"class":"section-title"},"周菜单","\n    ",[]],["button",{"class":"week-chip week-chip-active","bindtap":"editPlan","disabled":function($){with($){return (current.batch)}}},function($){with($){return ("计划 " + String((current.targetBoxes) ?? '') + " 盒")}},"\n  ",[]]]],["view",{"wx:if":function($){with($){return (current.menu.length)}}},"\n    ","\n  ",[["view",{"wx:for":function($){with($){return (current.menu)}},"wx:key":"id","class":"menu-row row between","bindtap":"openDish","data-id":function($){with($){return (item.id)}},"hover-class":"tap-hover"},"\n      ","\n  ",[["text",{"class":"label grow"},function($){with($){return (item.title)}},"\n      ",[]],["text",{"wx:if":function($){with($){return (item.categoryLabel)}},"class":"small muted"},function($){with($){return (item.categoryLabel)}},"\n      ",[]],["text",{"class":"chevron"},"","\n    ",[]]]]]],["view",{"wx:else":"","class":"stack compact"},"\n    ","\n  ",[["text",{"class":"body muted"},"选几道菜，搭成这周的餐盒。","\n    ",[]],["button",{"class":"button button-primary","bindtap":"chooseRecipe"},"从菜谱选菜","\n    ",[]],["button",{"class":"button button-outline","bindtap":"editPlan"},"输入菜名","\n  ",[]]]],["view",{"wx:if":function($){with($){return (current.menu.length && !current.batch)}},"class":"stack compact"},"\n    ","\n  ",[["button",{"wx:if":function($){with($){return (nextAction === 'shop')}},"class":"button button-primary","data-mode":"shop","bindtap":"openRecords"},"去采购清单 →","\n    ",[]],["button",{"wx:elif":function($){with($){return (nextAction === 'cook')}},"class":"button button-primary","data-mode":"cook","bindtap":"openRecords"},"去烹饪 →","\n    ",[]],["button",{"wx:else":"","class":"button button-primary","data-mode":"batch","bindtap":"openRecords"},"去分装 →","\n    ",[]],["view",{"class":"quick-actions"},"\n      ","\n  ",[["button",{"bindtap":"editPlan"},"编辑菜单","\n      ",[]],["button",{"wx:if":function($){with($){return (nextAction !== 'shop')}},"data-mode":"shop","bindtap":"openRecords"},"采购","\n      ",[]],["button",{"wx:if":function($){with($){return (nextAction !== 'cook')}},"data-mode":"cook","bindtap":"openRecords"},"烹饪","\n      ",[]],["button",{"wx:if":function($){with($){return (nextAction !== 'batch')}},"data-mode":"batch","bindtap":"openRecords"},"分装","\n    ",[]]]]]],["view",{"wx:if":function($){with($){return (current.batch)}},"class":"stack compact stock-panel"},"\n    ","\n  ",[["view",{"class":"row between"},"\n      ","\n    ",[["text",{"class":"section-title"},function($){with($){return ("剩 " + String((current.stock.total) ?? '') + " 盒")}},"\n      ",[]],["text",{"class":"small muted"},function($){with($){return ("冷藏 " + String((current.stock.chilled) ?? '') + " · 冷冻 " + String((current.stock.frozen) ?? '') + "")}},"\n    ",[]]]],["button",{"wx:if":function($){with($){return (current.stock.total)}},"class":"button button-primary","disabled":function($){with($){return (busy)}},"bindtap":"eat"},"记吃了一盒","\n    ",[]],["view",{"class":"quick-actions"},"\n      ","\n  ",[["button",{"wx:if":function($){with($){return (current.eaten.length)}},"bindtap":"undo"},"撤回上一次","\n      ",[]],["button",{"data-mode":"batch","bindtap":"openRecords"},"编辑分装","\n      ",[]],["button",{"data-mode":"shop","bindtap":"openRecords"},"采购","\n      ",[]],["button",{"data-mode":"cook","bindtap":"openRecords"},"烹饪","\n    ",[]]]]]],["text",{"wx:if":function($){with($){return (current.slotSummary)}},"class":"small muted"},function($){with($){return ("用餐 · " + String((current.slotSummary) ?? '') + "")}},"\n",[]]]]]],"pages/recipe/edit":["root",{},"","",[["view",{"class":"screen stack"},"\n  ","\n",[["view",{"class":"card pad stack"},"\n    ","\n  ",[["view",{"class":"field"},"\n      ","\n    ",[["text",{"class":"label"},"菜名","\n      ",[]],["input",{"class":"input","data-field":"title","bindinput":"input","value":function($){with($){return (title)}},"maxlength":"48","placeholder":"比如酱香卤鸡腿"},"","\n    ",[]]]],["view",{"class":"field"},"\n      ","\n    ",[["text",{"class":"label"},"分类","\n      ",[]],["view",{"class":"category-list"},"\n        ","\n    ",[["button",{"wx:for":function($){with($){return (categories)}},"wx:key":"id","data-id":function($){with($){return (item.id)}},"class":function($){with($){return ("category-chip " + String((category === item.id ? 'category-active' : '') ?? '') + "")}},"bindtap":"selectCategory"},function($){with($){return (item.label)}},"\n      ",[]]]]]],["view",{"class":"field"},"\n      ","\n  ",[["text",{"class":"label"},"参考图片","\n      ",[]],["block",{"wx:if":function($){with($){return (photo)}}},"\n        ","\n      ",[["image",{"class":"cover card","mode":"aspectFill","src":function($){with($){return (photo)}},"bindtap":"previewPhoto","data-photo":function($){with($){return (photo)}}},"","\n        ",[]],["view",{"class":"row"},"\n          ","\n      ",[["button",{"class":"button button-small button-quiet grow","bindtap":"pickPhoto"},"更换图片","\n          ",[]],["button",{"class":"button button-small button-outline","bindtap":"removePhoto"},"移除","\n        ",[]]]]]],["view",{"wx:else":"","class":"upload","bindtap":"pickPhoto","hover-class":"tap-hover"},"＋ 添加参考图","\n    ",[]]]]]],["view",{"class":"card pad stack"},"\n    ","\n  ",[["view",{"class":"field"},"\n      ","\n    ",[["text",{"class":"label"},"食材与用量","\n      ",[]],["input",{"class":"input","type":"number","maxlength":"2","data-field":"servings","bindinput":"input","value":function($){with($){return (servings)}},"placeholder":"这份用量做几份（选填）"},"","\n      ",[]],["textarea",{"class":"textarea textarea-short","data-field":"ingredients","bindinput":"input","value":function($){with($){return (ingredients)}},"maxlength":"1500","placeholder":"一行写一种食材，例如「鸡腿 600 g」"},"","\n    ",[]]]],["view",{"class":"field"},"\n      ","\n  ",[["text",{"class":"label"},"做法","\n      ",[]],["textarea",{"class":"textarea","data-field":"method","bindinput":"input","value":function($){with($){return (method)}},"maxlength":"6000","placeholder":"粘贴或写下步骤、用时和调味"},"","\n    ",[]]]]]],["button",{"class":"button button-primary","bindtap":"save","disabled":function($){with($){return (saving)}},"loading":function($){with($){return (saving)}},"hover-class":"tap-hover"},"保存菜谱","\n",[]]]]]],"pages/recipe/index":["root",{},"","",[["view",{"wx:if":function($){with($){return (recipe)}},"class":"screen stack"},"\n  ","\n",[["view",{"class":"row between"},"\n    ","\n  ",[["text",{"class":"title grow"},function($){with($){return (recipe.title)}},"\n    ",[]],["button",{"wx:if":function($){with($){return (!isSnapshot && !isRecommendation)}},"class":"button button-small button-quiet","bindtap":"editRecipe"},"编辑","\n  ",[]]]],["view",{"wx:if":function($){with($){return (recipe.photo)}},"class":"card relative"},"\n    ","\n  ",[["image",{"class":"cover cover-tall","mode":"aspectFill","src":function($){with($){return (recipe.photo)}},"bindtap":"previewPhoto","data-photo":function($){with($){return (recipe.photo)}}},"","\n    ",[]],["text",{"class":"caption"},function($){with($){return (photoCredit ? '实拍参考' : '参考图')}},"\n  ",[]]]],["view",{"wx:if":function($){with($){return (recipe.servings)}},"class":"card soft pad stack compact"},"\n    ","\n  ",[["view",{"class":"row"},"\n      ","\n    ",[["text",{"class":"pill"},function($){with($){return ("备餐 " + String((recipe.servings) ?? '') + " 份")}},"\n      ",[]],["text",{"wx:if":function($){with($){return (recipe.minutes)}},"class":"small muted"},function($){with($){return ("约 " + String((recipe.minutes) ?? '') + " 分钟")}},"\n    ",[]]]],["text",{"class":"body"},function($){with($){return (recipe.summary)}},"\n    ",[]],["text",{"class":"small muted"},function($){with($){return (recipe.pairing)}},"\n  ",[]]]],["view",{"wx:if":function($){with($){return (isRecommendation)}},"class":"recipe-actions"},"\n    ","\n  ",[["button",{"class":"button button-primary grow","bindtap":"schedule","disabled":function($){with($){return (selected || locked)}},"hover-class":"tap-hover"},function($){with($){return (locked ? '本周已分装' : (selected ? '已加入菜单' : '加入菜单'))}},"\n    ",[]],["button",{"class":"button button-outline","bindtap":"collect","disabled":function($){with($){return (collected)}},"hover-class":"tap-hover"},function($){with($){return (collected ? '已收藏' : '收藏菜谱')}},"\n  ",[]]]],["view",{"wx:if":function($){with($){return (recipe.ingredients.length)}},"class":"card pad stack compact"},"\n    ","\n  ",[["text",{"class":"section-title"},"食材","\n    ",[]],["view",{"wx:for":function($){with($){return (recipe.ingredients)}},"wx:key":"name","class":"row between"},"\n      ","\n  ",[["text",{"class":"body grow"},function($){with($){return (item.name)}},"\n      ",[]],["text",{"class":"small muted"},function($){with($){return (item.amount)}},"\n    ",[]]]]]],["view",{"class":"card pad stack compact"},"\n    ","\n  ",[["text",{"class":"section-title"},"做法","\n    ",[]],["text",{"wx:if":function($){with($){return (recipe.method)}},"class":"note"},function($){with($){return (recipe.method)}},"\n    ",[]],["text",{"wx:else":"","class":"muted"},"待补充","\n  ",[]]]],["view",{"wx:if":function($){with($){return (recipe.source || photoCredit)}},"class":"card"},"\n    ","\n  ",[["view",{"wx:if":function($){with($){return (recipe.source)}},"class":"action-row","bindtap":"copySource","data-kind":"recipe","hover-class":"tap-hover"},"\n      ","\n    ",[["view",{"class":"grow stack compact"},"\n        ","\n      ",[["text",{"class":"label"},"参考做法","\n        ",[]],["text",{"class":"small muted"},function($){with($){return (recipe.source.name)}},"\n      ",[]]]],["text",{"class":"small muted"},"复制网址","\n    ",[]]]],["view",{"wx:if":function($){with($){return (photoCredit)}},"class":"action-row","bindtap":"copySource","data-kind":"photo","hover-class":"tap-hover"},"\n      ","\n  ",[["view",{"class":"grow stack compact"},"\n        ","\n      ",[["text",{"class":"label"},"照片来源","\n        ",[]],["text",{"class":"small muted"},function($){with($){return (photoCredit.name)}},"\n      ",[["text",{"wx:if":function($){with($){return (photoCredit.note)}}},function($){with($){return (" · " + String((photoCredit.note) ?? '') + "")}},"",[]]]]]],["text",{"class":"small muted"},"复制网址","\n    ",[]]]]]],["button",{"wx:if":function($){with($){return (!isSnapshot && !isRecommendation)}},"class":"button button-primary","bindtap":"schedule","disabled":function($){with($){return (selected || locked)}},"hover-class":"tap-hover"},function($){with($){return (locked ? '本周已分装' : (selected ? '已加入菜单' : '加入菜单'))}},"\n",[]]]],["view",{"wx:elif":function($){with($){return (ready)}},"class":"screen"},"","\n",[["view",{"class":"card empty-text muted"},"找不到这份菜谱","",[]]]]]],"pages/recipes/index":["root",{},"","",[["view",{"class":"screen stack library-screen"},"\n  ","\n",[["view",{"class":"row between"},"\n    ","\n  ",[["text",{"class":"label"},"周末备餐","\n    ",[]],["button",{"class":"text-action accent","bindtap":"addRecipe"},"＋ 新增菜谱","\n  ",[]]]],["text",{"class":"heading"},"菜谱","\n  ",[]],["view",{"class":"row recipe-tabs"},"\n    ","\n  ",[["button",{"class":function($){with($){return ("text-action " + String((tab === 'mine' ? 'recipe-tab-active' : '') ?? '') + "")}},"data-tab":"mine","aria-pressed":function($){with($){return (tab === 'mine')}},"bindtap":"changeTab"},"我的菜谱","\n    ",[]],["button",{"class":function($){with($){return ("text-action " + String((tab === 'recommended' ? 'recipe-tab-active' : '') ?? '') + "")}},"data-tab":"recommended","aria-pressed":function($){with($){return (tab === 'recommended')}},"bindtap":"changeTab"},"推荐","\n  ",[]]]],["input",{"class":"input search","type":"text","placeholder":"搜菜名或食材","value":function($){with($){return (query)}},"bindinput":"search","confirm-type":"search"},"","\n  ",[]],["view",{"class":"category-list"},"\n    ","\n  ",[["button",{"wx:for":function($){with($){return (categories)}},"wx:key":"id","class":function($){with($){return ("category-chip " + String((category === item.id ? 'category-active' : '') ?? '') + "")}},"data-id":function($){with($){return (item.id)}},"aria-pressed":function($){with($){return (category === item.id)}},"bindtap":"changeCategory"},function($){with($){return (item.label)}},"\n  ",[]]]],["view",{"wx:if":function($){with($){return (recipes.length)}},"class":"list-images"},"\n    ","\n  ",[["view",{"wx:for":function($){with($){return (recipes)}},"wx:key":"id","class":"card library-tile"},"\n      ","\n  ",[["view",{"data-id":function($){with($){return (item.id)}},"bindtap":"openRecipe","aria-label":function($){with($){return ('查看 ' + item.title)}},"hover-class":"tap-hover"},"\n        ","\n      ",[["image",{"wx:if":function($){with($){return (item.photo)}},"class":"cover library-cover","src":function($){with($){return (item.photo)}},"mode":"aspectFill"},"","\n        ",[]],["view",{"wx:else":"","class":"cover library-cover cover-empty"},"","\n      ",[["text",{"class":"small muted"},function($){with($){return (item.categoryLabel || '我的菜谱')}},"",[]]]]]],["view",{"class":"library-card row between tight"},"\n        ","\n    ",[["view",{"class":"grow","data-id":function($){with($){return (item.id)}},"bindtap":"openRecipe","hover-class":"tap-hover"},"\n          ","\n        ",[["view",{"class":"label"},function($){with($){return (item.title)}},"\n          ",[]],["text",{"wx:if":function($){with($){return (item.categoryLabel)}},"class":"small muted"},function($){with($){return (item.categoryLabel)}},"\n        ",[]]]],["button",{"class":function($){with($){return ("dish-add " + String((item.selected ? 'dish-selected' : '') ?? '') + "")}},"data-id":function($){with($){return (item.id)}},"disabled":function($){with($){return (locked)}},"bindtap":"toggleDish","aria-label":function($){with($){return ((item.selected ? '移除 ' : '加入 ') + item.title)}}},function($){with($){return (item.selected ? '✓' : '＋')}},"\n      ",[]]]]]]]],["view",{"wx:else":"","class":"empty-text muted"},function($){with($){return (tab === 'mine' && !query && !category ? '把常做的菜存进来，下次选菜更快。' : '没找到对应的菜谱')}},"\n  ",[]],["button",{"class":"button selection-bar","bindtap":"openPlan"},"\n    ","\n",[["text",{},function($){with($){return ("" + String((targetLabel) ?? '') + " · " + String((locked ? '已分装' : '已选 ' + selectedCount + ' 道') ?? '') + "")}},"",[]],["text",{},"看菜单 →","\n  ",[]]]]]]]],"pages/records/index":["root",{},"","",[["import",{"src":"../../templates/shared.wxml"},"","\n",[]],["view",{"wx:if":function($){with($){return (current)}},"class":"screen stack"},"\n  ","\n",[["view",{"class":"row between"},"\n    ","\n  ",[["text",{"class":"small muted"},function($){with($){return (current.label)}},"\n    ",[]],["button",{"wx:if":function($){with($){return (mode === 'shop' && !editor)}},"class":"text-action accent","bindtap":"addShopping"},"＋ 加食材","\n    ",[]],["text",{"wx:if":function($){with($){return (mode === 'cook')}},"class":"small muted"},function($){with($){return ("已完成 " + String((current.cooked.length) ?? '') + " / " + String((current.menu.length) ?? '') + " 道")}},"\n  ",[]]]],["view",{"class":"stack compact"},"\n    ","\n  ",[["text",{"class":"heading"},function($){with($){return (mode === 'shop' ? '采购' : (mode === 'cook' ? '烹饪' : '分装'))}},"\n    ",[]],["text",{"wx:if":function($){with($){return (mode === 'shop')}},"class":"small muted"},function($){with($){return ("" + String((current.menu.length) ?? '') + " 道菜合成一张清单")}},"\n    ",[]],["text",{"wx:elif":function($){with($){return (mode === 'cook' && dish)}},"class":"small muted"},function($){with($){return (dish.title)}},"\n  ",[]]]],["view",{"wx:if":function($){with($){return (editor)}},"class":"card pad stack"},"\n    ","\n\n  ",[["text",{"class":"section-title"},function($){with($){return (editor === 'shopping' ? '添加食材' : (editor === 'expense' ? '采购支出' : (form.dishTitle || '过程记录')))}},"\n    ",[]],["block",{"wx:if":function($){with($){return (editor === 'expense')}}},"\n      ","\n    ",[["view",{"class":"field"},"\n        ","\n      ",[["text",{"class":"label"},"实付金额（元）","\n        ",[]],["input",{"class":"input","type":"digit","value":function($){with($){return (form.amount)}},"data-model":"form","data-field":"amount","bindinput":"fieldInput","placeholder":"0.00"},"","\n      ",[]]]],["view",{"class":"field"},"\n        ","\n    ",[["text",{"class":"label"},"店名","\n        ",[]],["input",{"class":"input","maxlength":"48","value":function($){with($){return (form.shop)}},"data-model":"form","data-field":"shop","bindinput":"fieldInput","placeholder":"选填"},"","\n      ",[]]]]]],["block",{"wx:elif":function($){with($){return (editor === 'shopping')}}},"\n      ","\n    ",[["view",{"class":"field"},"\n        ","\n      ",[["text",{"class":"label"},"食材","\n        ",[]],["input",{"class":"input","maxlength":"48","value":function($){with($){return (form.name)}},"data-model":"form","data-field":"name","bindinput":"fieldInput","placeholder":"例如柠檬"},"","\n      ",[]]]],["view",{"class":"field"},"\n        ","\n    ",[["text",{"class":"label"},"用量","\n        ",[]],["input",{"class":"input","maxlength":"32","value":function($){with($){return (form.amount)}},"data-model":"form","data-field":"amount","bindinput":"fieldInput","placeholder":"选填"},"","\n      ",[]]]]]],["textarea",{"wx:else":"","class":"textarea textarea-short","maxlength":"1500","value":function($){with($){return (form.text)}},"data-model":"form","data-field":"text","bindinput":"fieldInput","placeholder":"写下这次做了什么，或下次想怎么调"},"","\n\n    ",[]],["block",{"wx:if":function($){with($){return (editor !== 'shopping')}}},"\n      ","\n\n    ",[["view",{"wx:if":function($){with($){return (form.photo)}},"class":"stack compact"},"\n        ","\n      ",[["image",{"class":"timeline-image","mode":"aspectFill","src":function($){with($){return (form.photo)}},"data-photo":function($){with($){return (form.photo)}},"bindtap":"previewPhoto"},"","\n        ",[]],["view",{"class":"row"},"\n          ","\n      ",[["button",{"class":"button button-small button-quiet grow","bindtap":"pickPhoto","data-model":"form"},"更换照片","\n          ",[]],["button",{"class":"button button-small button-outline","bindtap":"clearPhoto","data-model":"form"},"移除","\n        ",[]]]]]],["view",{"wx:else":"","class":"upload","bindtap":"pickPhoto","data-model":"form","hover-class":"tap-hover"},function($){with($){return (editor === 'expense' ? '＋ 添加小票照片' : '＋ 添加过程照片')}},"\n    ",[]]]],["view",{"class":"row"},"\n      ","\n    ",[["button",{"class":"button button-quiet","bindtap":"cancelEdit","disabled":function($){with($){return (saving)}}},"取消","\n      ",[]],["button",{"class":"button button-primary grow","bindtap":"saveEntry","disabled":function($){with($){return (saving)}},"loading":function($){with($){return (saving)}}},"保存","\n    ",[]]]],["button",{"wx:if":function($){with($){return (form.id)}},"class":"button button-small button-danger","bindtap":"deleteEntry","disabled":function($){with($){return (saving)}}},"删除记录","\n  ",[]]]],["block",{"wx:if":function($){with($){return (mode === 'shop')}}},"\n    ","\n\n  ",[["view",{"wx:if":function($){with($){return (shoppingTotal)}},"class":"row between purchase-progress"},"\n      ","\n    ",[["text",{"class":"small muted"},"采购进度","\n      ",[]],["text",{"class":"small accent"},function($){with($){return ("" + String((processedCount) ?? '') + " / " + String((shoppingTotal) ?? '') + " 项已处理")}},"\n    ",[]]]],["view",{"wx:for":function($){with($){return (shoppingSections)}},"wx:for-item":"section","wx:key":"label"},"\n      ","\n    ",[["text",{"wx:if":function($){with($){return (section.rows.length)}},"class":"label"},function($){with($){return (section.label)}},"\n      ",[]],["view",{"wx:for":function($){with($){return (section.rows)}},"wx:key":"id"},"\n        ","\n    ",[["view",{"class":"purchase-row row"},"\n          ","\n        ",[["button",{"class":function($){with($){return ("check-button " + String((item.status !== 'todo' ? 'check-active' : '') ?? '') + "")}},"data-id":function($){with($){return (item.id)}},"bindtap":"changeShoppingStatus","aria-label":function($){with($){return (item.name + ' · ' + item.statusLabel)}}},function($){with($){return (item.status !== 'todo' ? '✓' : '')}},"\n          ",[]],["view",{"class":"grow stack compact","data-id":function($){with($){return (item.id)}},"bindtap":"toggleIngredient"},"\n            ","\n          ",[["text",{"class":"label"},function($){with($){return (item.name)}},"\n            ",[]],["text",{"wx:if":function($){with($){return (item.status !== 'todo' || item.detail)}},"class":"small muted"},function($){with($){return (item.status !== 'todo' ? item.statusLabel : item.detail)}},"\n          ",[["text",{"wx:if":function($){with($){return (item.removed)}}},function($){with($){return (" · " + String((item.detail) ?? '') + "")}},"",[]]]]]],["text",{"wx:if":function($){with($){return (item.amount)}},"class":"label"},function($){with($){return (item.amount)}},"\n          ",[]],["button",{"wx:if":function($){with($){return (item.uses.length > 1)}},"class":"text-action accent","data-id":function($){with($){return (item.id)}},"bindtap":"toggleIngredient"},function($){with($){return (expandedIngredient === item.id ? '收起' : '展开')}},"\n        ",[]]]],["view",{"wx:if":function($){with($){return (expandedIngredient === item.id)}},"class":"ingredient-detail stack compact"},"\n          ","\n      ",[["view",{"wx:for":function($){with($){return (item.uses)}},"wx:for-item":"use","wx:key":"dishId","class":"row between"},"\n            ","\n        ",[["text",{"class":"small muted"},function($){with($){return (use.title)}},"\n            ",[]],["text",{"wx:if":function($){with($){return (use.amount)}},"class":"small"},function($){with($){return (use.amount)}},"\n          ",[]]]]]]]]]],["view",{"wx:if":function($){with($){return (!shoppingTotal)}},"class":"empty-text muted"},"菜谱里的食材会自动带入，也可以手动添加。","\n    ",[]],["text",{"class":"section-title"},"支出记录","\n    ",[]],["view",{"class":"card"},"\n      ","\n    ",[["view",{"wx:for":function($){with($){return (expenses)}},"wx:key":"id","class":"action-row","bindtap":"editEntry","data-id":function($){with($){return (item.id)}},"data-kind":"expense","hover-class":"tap-hover"},"\n        ","\n      ",[["image",{"wx:if":function($){with($){return (item.photo)}},"class":"expense-thumb","mode":"aspectFill","src":function($){with($){return (item.photo)}}},"","\n        ",[]],["view",{"class":"grow stack compact"},"\n          ","\n        ",[["text",{"class":"label"},function($){with($){return ("¥" + String((item.amount) ?? '') + "")}},"\n          ",[]],["text",{"class":"small muted"},function($){with($){return (item.day)}},"\n        ",[["text",{"wx:if":function($){with($){return (item.shop)}}},function($){with($){return (" · " + String((item.shop) ?? '') + "")}},"",[]]]]]],["text",{"class":"chevron"},"","\n      ",[]]]],["view",{"wx:if":function($){with($){return (!expenses.length)}},"class":"empty-text muted"},"结账后，记下实际花了多少。","\n    ",[]]]],["view",{"wx:if":function($){with($){return (!editor)}},"class":"purchase-footer row between"},"\n      ","\n  ",[["view",{"class":"stack compact"},"","\n      ",[["text",{"class":"small muted"},"采购支出","",[]],["text",{"class":"number"},function($){with($){return ("¥" + String((current.spent) ?? '') + "")}},"",[]]]],["button",{"class":"button button-primary","bindtap":"addExpense"},"记一笔","\n    ",[]]]]]],["block",{"wx:if":function($){with($){return (mode === 'cook')}}},"\n    ","\n\n  ",[["block",{"wx:if":function($){with($){return (dish && !editor)}}},"\n      ","\n    ",[["scroll-view",{"scroll-x":function($){with($){return (true)}},"class":"dish-tabs"},"\n        ","\n      ",[["view",{"class":"dish-tab-row"},"\n          ","\n      ",[["button",{"wx:for":function($){with($){return (cookMenu)}},"wx:key":"id","class":function($){with($){return ("cook-tab " + String((item.id === dish.id ? 'cook-tab-active' : '') ?? '') + "")}},"data-id":function($){with($){return (item.id)}},"bindtap":"switchDish"},function($){with($){return ("" + String((item.title) ?? '') + "" + String((item.done ? ' ✓' : '') ?? '') + "")}},"\n        ",[]]]]]],["image",{"wx:if":function($){with($){return (dish.photo)}},"class":"cover cook-cover","mode":"aspectFill","src":function($){with($){return (dish.photo)}},"data-photo":function($){with($){return (dish.photo)}},"bindtap":"previewPhoto"},"","\n      ",[]],["view",{"wx:if":function($){with($){return (steps.length)}},"class":"stack cook-step"},"\n        ","\n      ",[["text",{"class":"small accent"},function($){with($){return ("第 " + String((stepIndex + 1) ?? '') + " 步 / 共 " + String((steps.length) ?? '') + " 步")}},"\n        ",[]],["text",{"class":"step-text"},function($){with($){return (steps[stepIndex])}},"\n      ",[]]]],["text",{"wx:else":"","class":"body muted"},"这道菜还没有写做法，可以直接记录完成。","\n      ",[]],["view",{"class":"row between cook-tools"},"\n        ","\n      ",[["button",{"class":"text-action accent","data-scope":"dish","bindtap":"addNote"},"加照片或备注","\n        ",[]],["button",{"class":"text-action","bindtap":"addNote"},"记录整套","\n      ",[]]]],["view",{"class":"row"},"\n        ","\n      ",[["button",{"wx:if":function($){with($){return (steps.length > 1)}},"class":"button button-outline grow","data-step":"-1","bindtap":"moveStep","disabled":function($){with($){return (!stepIndex)}}},"上一步","\n        ",[]],["button",{"wx:if":function($){with($){return (steps.length > stepIndex + 1)}},"class":"button button-primary grow","data-step":"1","bindtap":"moveStep"},"下一步 →","\n        ",[]],["button",{"wx:else":"","class":"button button-primary grow","bindtap":"toggleCookDone"},function($){with($){return (dishDone ? '撤销完成' : '完成这道菜')}},"\n      ",[]]]],["button",{"wx:if":function($){with($){return (dishDone && steps.length > stepIndex + 1)}},"class":"text-action","bindtap":"toggleCookDone"},"撤销完成","\n    ",[]]]],["button",{"wx:if":function($){with($){return (!dish && !editor)}},"class":"button button-outline","bindtap":"addNote"},"记录这次烹饪","\n    ",[]],["view",{"wx:if":function($){with($){return (notes.length)}},"class":"timeline"},"\n      ","\n  ",[["view",{"wx:for":function($){with($){return (notes)}},"wx:key":"id","class":"timeline-item"},"\n        ","\n    ",[["view",{"class":"card pad stack compact"},"\n          ","\n      ",[["view",{"class":"row between"},"\n            ","\n          ",[["text",{"class":"small muted"},function($){with($){return ("" + String((item.dishTitle || '整套备餐') ?? '') + " · " + String((item.day) ?? '') + " " + String((item.time) ?? '') + "")}},"\n            ",[]],["button",{"class":"button button-small button-quiet","bindtap":"editEntry","data-id":function($){with($){return (item.id)}},"data-kind":"note"},"编辑","\n          ",[]]]],["text",{"wx:if":function($){with($){return (item.text)}},"class":"note"},function($){with($){return (item.text)}},"\n          ",[]],["image",{"wx:if":function($){with($){return (item.photo)}},"class":"timeline-image","mode":"aspectFill","src":function($){with($){return (item.photo)}},"data-photo":function($){with($){return (item.photo)}},"bindtap":"previewPhoto"},"","\n        ",[]]]]]]]]]],["block",{"wx:if":function($){with($){return (mode === 'batch' && current.menu.length)}}},"\n    ","\n",[["view",{"class":"card pad stack"},"\n      ","\n    ",[["view",{"class":"row between batch-summary"},"\n        ","\n      ",[["view",{"class":"stack compact"},"","\n        ",[["text",{"class":"small muted"},"计划","",[]],["text",{"class":"number"},function($){with($){return ("" + String((current.targetBoxes) ?? '') + " 盒")}},"",[]]]],["view",{"class":"stack compact"},"","\n      ",[["text",{"class":"small muted"},"实做","",[]],["text",{"class":"number"},function($){with($){return ("" + String((batch.count) ?? '') + " 盒")}},"",[]]]]]],["view",{"wx:for":function($){with($){return (storageFields)}},"wx:key":"field","class":"row between counter-row"},"\n        ","\n      ",[["text",{"class":"label"},function($){with($){return (item.label)}},"\n        ",[]],["template",{"is":"stepper","data":function($){with($){return (({field: item.field, label: item.label, value: batch[item.field]}))}}},"","\n      ",[]]]],["text",{"wx:if":function($){with($){return (difference > 0)}},"class":"small muted"},function($){with($){return ("还有 " + String((difference) ?? '') + " 盒待填写存放方式")}},"\n      ",[]],["text",{"wx:elif":function($){with($){return (0 > difference)}},"class":"small hint-error"},"存放盒数超过实际盒数","\n    ",[]]]],["view",{"class":"card pad stack"},"\n      ","\n    ",[["text",{"class":"section-title"},"成品照","\n      ",[]],["block",{"wx:if":function($){with($){return (batch.photo)}}},"\n        ","\n      ",[["image",{"class":"cover card","mode":"aspectFill","src":function($){with($){return (batch.photo)}},"data-photo":function($){with($){return (batch.photo)}},"bindtap":"previewPhoto"},"","\n        ",[]],["view",{"class":"row"},"\n          ","\n      ",[["button",{"class":"button button-small button-quiet grow","bindtap":"pickPhoto","data-model":"batch"},"更换照片","\n          ",[]],["button",{"class":"button button-small button-outline","bindtap":"clearPhoto","data-model":"batch"},"移除","\n        ",[]]]]]],["view",{"wx:else":"","class":"upload","bindtap":"pickPhoto","data-model":"batch","hover-class":"tap-hover"},"＋ 拍成品","\n    ",[]]]],["view",{"class":"card"},"\n      ","\n    ",[["view",{"class":"action-row","bindtap":"toggleNutrition","hover-class":"tap-hover"},"\n        ","\n      ",[["text",{"class":"grow label"},"营养选填","",[]],["text",{"class":function($){with($){return ("chevron " + String((nutritionOpen ? 'chevron-down' : '') ?? '') + "")}}},"","\n      ",[]]]],["view",{"wx:if":function($){with($){return (nutritionOpen)}},"class":"pad divider stack"},"\n        ","\n    ",[["view",{"class":"field"},"\n          ","\n        ",[["text",{"class":"label"},"每盒重量（g）","\n          ",[]],["input",{"class":"input","type":"digit","value":function($){with($){return (batch.weight)}},"data-model":"batch","data-field":"weight","bindinput":"fieldInput","placeholder":"选填"},"","\n        ",[]]]],["view",{"class":"field"},"\n          ","\n        ",[["text",{"class":"label"},"每盒热量（kcal）","\n          ",[]],["input",{"class":"input","type":"digit","value":function($){with($){return (batch.calories)}},"data-model":"batch","data-field":"calories","bindinput":"fieldInput","placeholder":"选填"},"","\n        ",[]]]],["view",{"class":"field"},"\n          ","\n      ",[["text",{"class":"label"},"每盒蛋白质（g）","\n          ",[]],["input",{"class":"input","type":"digit","value":function($){with($){return (batch.protein)}},"data-model":"batch","data-field":"protein","bindinput":"fieldInput","placeholder":"选填"},"","\n        ",[]]]]]]]],["button",{"class":"button button-primary","bindtap":"saveBatch","disabled":function($){with($){return (saving || difference !== 0 || !batch.count)}},"loading":function($){with($){return (saving)}},"hover-class":"tap-hover"},function($){with($){return ("保存 " + String((batch.count) ?? '') + " 盒")}},"\n  ",[]]]]]]]],"pages/review/index":["root",{},"","",[["view",{"class":"screen stack history-screen"},"\n  ","\n",[["text",{"class":"heading"},"历史","\n  ",[]],["view",{"wx:for":function($){with($){return (weeks)}},"wx:key":"start","class":"card history-card"},"\n    ","\n  ",[["image",{"wx:if":function($){with($){return (item.batch.photo)}},"class":"cover history-cover","mode":"aspectFill","src":function($){with($){return (item.batch.photo)}},"data-photo":function($){with($){return (item.batch.photo)}},"bindtap":"previewPhoto"},"","\n    ",[]],["view",{"class":"pad stack"},"\n      ","\n  ",[["text",{"class":"small muted"},function($){with($){return (item.label)}},"\n      ",[]],["text",{"wx:if":function($){with($){return (item.menuText)}},"class":"section-title"},function($){with($){return (item.menuText)}},"\n      ",[]],["view",{"class":"row history-stats"},"\n        ","\n      ",[["text",{"class":"label"},function($){with($){return ("实做 " + String((item.batch ? item.batch.count : 0) ?? '') + " 盒")}},"\n        ",[]],["text",{"class":"label"},function($){with($){return ("采购 ¥" + String((item.spent) ?? '') + "")}},"\n      ",[]]]],["view",{"wx:if":function($){with($){return (item.nutrition.length)}},"class":"row"},"\n        ","\n      ",[["text",{"class":"small muted"},"每盒","\n        ",[]],["text",{"wx:for":function($){with($){return (item.nutrition)}},"wx:for-item":"nutrient","wx:key":"key","class":"small"},function($){with($){return ("" + String((nutrient.value) ?? '') + " " + String((nutrient.unit) ?? '') + "")}},"\n      ",[]]]],["view",{"wx:if":function($){with($){return (item.notes.length)}},"class":"stack compact"},"\n        ","\n      ",[["view",{"wx:for":function($){with($){return (item.notes)}},"wx:for-item":"note","wx:key":"id","class":"history-note stack compact"},"\n          ","\n      ",[["text",{"class":"small muted"},function($){with($){return ("" + String((note.dishTitle || '整套备餐') ?? '') + " · " + String((note.day) ?? '') + "")}},"\n          ",[]],["text",{"wx:if":function($){with($){return (note.text)}},"class":"note"},function($){with($){return (note.text)}},"\n          ",[]],["image",{"wx:if":function($){with($){return (note.photo)}},"class":"timeline-image","mode":"aspectFill","src":function($){with($){return (note.photo)}},"data-photo":function($){with($){return (note.photo)}},"bindtap":"previewPhoto"},"","\n        ",[]]]]]],["view",{"class":"row"},"\n        ","\n    ",[["button",{"class":"button button-quiet grow","data-start":function($){with($){return (item.start)}},"bindtap":"openPrep"},"查看记录","\n        ",[]],["button",{"wx:if":function($){with($){return (item.menu.length)}},"class":"button button-outline grow","data-start":function($){with($){return (item.start)}},"bindtap":"repeat","disabled":function($){with($){return (saving)}}},"复做这套","\n      ",[]]]]]]]],["view",{"wx:if":function($){with($){return (!weeks.length)}},"class":"empty-text muted"},"分装成品、记过的支出和烹饪过程会出现在这里。","\n",[]]]]]],"pages/schedule/index":["root",{},"","",[["view",{"wx:if":function($){with($){return (current)}},"class":"screen stack"},"\n  ","\n",[["view",{"class":"stack compact"},"\n    ","\n  ",[["text",{"class":"heading"},"编辑菜单","\n    ",[]],["text",{"class":"small muted"},function($){with($){return (current.label)}},"\n  ",[]]]],["block",{"wx:if":function($){with($){return (!current.batch)}}},"\n    ","\n  ",[["view",{"class":"stack compact"},"\n      ","\n    ",[["view",{"wx:for":function($){with($){return (current.menu)}},"wx:key":"id","class":"menu-row row between"},"\n        ","\n      ",[["text",{"class":"label grow"},function($){with($){return (item.title)}},"\n        ",[]],["button",{"class":"button button-quiet button-small","data-id":function($){with($){return (item.id)}},"bindtap":"removeDish"},"移除","\n      ",[]]]],["view",{"class":"row"},"\n        ","\n      ",[["input",{"class":"input grow","value":function($){with($){return (name)}},"maxlength":"48","placeholder":"临时加一道菜，例如杂粮饭","bindinput":"dishInput","bindconfirm":"addQuickDish"},"","\n        ",[]],["button",{"class":"button button-outline","bindtap":"addQuickDish"},"添加","\n      ",[]]]],["button",{"class":"button button-outline","bindtap":"choose"},"从菜谱选菜","\n    ",[]]]],["view",{"class":"row between"},"\n      ","\n    ",[["text",{"class":"section-title"},"计划盒数","\n      ",[]],["input",{"class":"input plan-count","type":"number","maxlength":"2","value":function($){with($){return (targetBoxes)}},"bindinput":"boxInput"},"","\n    ",[]]]],["button",{"class":"button button-quiet","bindtap":"toggleDates"},function($){with($){return ("用餐日期 · " + String((dateCount ? '已选 ' + dateCount + ' 餐' : '选填') ?? '') + "")}},"\n    ",[]],["view",{"wx:if":function($){with($){return (datesOpen)}},"class":"card"},"\n      ","\n    ",[["view",{"wx:for":function($){with($){return (rows)}},"wx:key":"date","class":"slot-row"},"\n        ","\n    ",[["view",{"class":"slot-day stack compact"},"","\n        ",[["text",{"class":"label"},function($){with($){return (item.label)}},"",[]],["text",{"class":"small muted"},function($){with($){return (item.short)}},"",[]]]],["button",{"class":function($){with($){return ("slot-choice " + String((item.lunch ? 'slot-choice-active' : '') ?? '') + "")}},"data-date":function($){with($){return (item.date)}},"data-meal":"lunch","bindtap":"toggleMeal","aria-pressed":function($){with($){return (item.lunch)}}},"午餐","\n        ",[]],["button",{"class":function($){with($){return ("slot-choice " + String((item.dinner ? 'slot-choice-active' : '') ?? '') + "")}},"data-date":function($){with($){return (item.date)}},"data-meal":"dinner","bindtap":"toggleMeal","aria-pressed":function($){with($){return (item.dinner)}}},"晚餐","\n      ",[]]]]]],["button",{"class":"button button-primary","bindtap":"save","disabled":function($){with($){return (saving)}},"loading":function($){with($){return (saving)}}},"保存安排","\n  ",[]]]],["text",{"wx:else":"","class":"muted"},"这周已分装，可在备餐页查看。","\n",[]]]]]],"pages/today/index":["root",{},"","",[["view",{"class":"screen"},"正在打开备餐","\n",[]]]],"templates/shared":["root",{},"","",[["template",{"name":"week-switch"},"\n  ","\n\n",[["view",{"class":"week-switch"},"\n    ","\n",[["button",{"aria-label":"上一周","hover-class":"tap-hover","bindtap":"changeWeek","data-step":"-1"},"","\n    ",[["text",{"class":"chevron chevron-left"},"","",[]]]],["text",{"class":"week-date"},function($){with($){return (label)}},"\n    ",[]],["button",{"aria-label":"下一周","hover-class":"tap-hover","bindtap":"changeWeek","data-step":"1"},"","\n  ",[["text",{"class":"chevron"},"","",[]]]]]]]],["template",{"name":"stepper"},"\n  ","\n",[["view",{"class":"stepper"},"\n    ","\n",[["button",{"aria-label":function($){with($){return ("减少" + String((label) ?? '') + "")}},"disabled":function($){with($){return (0 >= value)}},"bindtap":"step","data-field":function($){with($){return (field)}},"data-step":"-1"},"−","\n    ",[]],["text",{"class":"stepper-value"},function($){with($){return (value)}},"\n    ",[]],["button",{"aria-label":function($){with($){return ("增加" + String((label) ?? '') + "")}},"disabled":function($){with($){return (value >= 99)}},"bindtap":"step","data-field":function($){with($){return (field)}},"data-step":"1"},"＋","\n  ",[]]]]]]]]}};

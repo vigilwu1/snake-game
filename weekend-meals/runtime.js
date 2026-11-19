@@ -303,9 +303,11 @@
     if (attrs['wx:for']) {
       const group = document.createDocumentFragment();
       const entries = value(attrs['wx:for'], scope) || [];
+      const itemName = attrs['wx:for-item'] || 'item';
+      const indexName = attrs['wx:for-index'] || 'index';
       entries.forEach((item, index) => group.append(renderNode(
-        [tag, { ...attrs, 'wx:for': undefined }, text, tail, children], { ...scope, item, index },
-        item[attrs['wx:key']] ?? index
+        [tag, { ...attrs, 'wx:for': undefined }, text, tail, children],
+        { ...scope, [itemName]: item, [indexName]: index }, item[attrs['wx:key']] ?? index
       )));
       return group;
     }
@@ -330,6 +332,8 @@
         element.disabled = Boolean(value(attrs.disabled, scope));
       }
       if (tag === 'input' && attrs.type === 'digit') element.inputMode = 'decimal';
+      if (tag === 'input' && attrs.type === 'number') element.inputMode = 'numeric';
+      if (attrs.bindconfirm) element.dataset.confirm = attrs.bindconfirm;
       if (['input', 'textarea'].includes(tag)) element.value = value(attrs.value, scope) ?? '';
       if (tag === 'image') {
         element.alt = '';
@@ -449,6 +453,10 @@
     if (element && !element.disabled) getActive()[element.dataset.tap]?.(eventFor(element));
   });
   view.addEventListener('keydown', event => {
+    if (event.key === 'Enter' && event.target.dataset.confirm) {
+      event.preventDefault();
+      getActive()[event.target.dataset.confirm]?.(eventFor(event.target));
+    }
     if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('[role=button]')) {
       event.preventDefault();
       event.target.click();
