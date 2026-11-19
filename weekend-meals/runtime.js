@@ -284,7 +284,20 @@
     }
   }
 
-  function picker(attrs, scope) {
+  function picker(attrs, children, scope) {
+    if (attrs.mode === 'date') {
+      const label = document.createElement('label');
+      const input = document.createElement('input');
+      label.className = value(attrs.class, scope) || '';
+      input.type = 'date';
+      input.className = 'web-date-input';
+      input.value = value(attrs.value, scope) || '';
+      input.dataset.change = attrs.bindchange;
+      input.setAttribute('aria-label', value(attrs['aria-label'], scope) || '选择日期');
+      appendChildren(label, children, scope);
+      label.append(input);
+      return label;
+    }
     const select = document.createElement('select');
     select.className = 'input';
     select.dataset.change = attrs.bindchange;
@@ -313,14 +326,14 @@
     }
     if (tag === 'template' && attrs.is) return renderNode(templates[attrs.is], value(attrs.data, scope));
     if (tag === 'import') return document.createDocumentFragment();
-    if (tag === 'picker') return picker(attrs, scope);
+    if (tag === 'picker') return picker(attrs, children, scope);
     const element = ['root', 'block', 'template'].includes(tag)
       ? document.createDocumentFragment()
       : document.createElement({ view: 'div', text: 'span', image: 'img' }[tag] || tag);
 
     if (element instanceof HTMLElement) {
       if (key != null) element.dataset.key = String(key);
-      for (const name of ['class', 'placeholder', 'maxlength', 'aria-label', 'aria-pressed']) {
+      for (const name of ['class', 'placeholder', 'maxlength', 'role', 'aria-label', 'aria-modal', 'aria-pressed']) {
         const attr = value(attrs[name], scope);
         if (attr != null) element.setAttribute(name, attr);
       }
