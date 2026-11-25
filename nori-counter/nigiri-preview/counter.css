@@ -1,0 +1,193 @@
+:root {
+  color-scheme: dark;
+  font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  color: #fff5e2;
+  background: #201612;
+  -webkit-tap-highlight-color: transparent;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  display: grid;
+  min-height: 100vh;
+  min-height: 100dvh;
+  place-items: center;
+  background: radial-gradient(ellipse at 50% 44%, #453123, #1a110e 73%);
+}
+
+button { font: inherit; cursor: pointer; }
+button:focus-visible { outline: 2px solid #fff3d5; outline-offset: 4px; }
+button:disabled { visibility: hidden; }
+
+.counter {
+  width: min(100%, 610px);
+  height: 100vh;
+  height: 100dvh;
+  min-height: 350px;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: #30211a;
+  box-shadow: 0 0 90px #090604a0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.diner {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 40%;
+  background: linear-gradient(145deg, #18100ec9, #20110a00 67%), url('./art/diner.jpg') 58% 53% / cover;
+}
+
+#table {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  outline: none;
+}
+
+@media (pointer: fine) {
+  #table[data-hover] { cursor: grab; }
+  #table[data-dragging] { cursor: grabbing; }
+}
+
+.order {
+  position: absolute;
+  top: max(21px, env(safe-area-inset-top));
+  left: max(22px, env(safe-area-inset-left));
+  right: max(18px, env(safe-area-inset-right));
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.order-copy { text-shadow: 0 1px 15px #170f0bea, 0 2px 4px #1b0b04ad; }
+.order-copy p, .order-copy h1 { margin: 0; }
+.brand { font-size: 12px; letter-spacing: .24em; color: #f1d2a1; }
+.order h1 {
+  margin-top: 5px;
+  font: 600 clamp(27px, 7vw, 36px)/1.18 "Songti SC", "Noto Serif CJK SC", "SimSun", serif;
+}
+.order .portion { margin-top: 5px; color: #f9e5c4; font-size: 13px; letter-spacing: .06em; }
+
+.reset {
+  pointer-events: auto;
+  flex: 0 0 44px;
+  height: 44px;
+  padding: 0 0 2px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid #f8dfba65;
+  background: #20171180;
+  color: #fff1d6;
+  font-size: 22px;
+}
+
+.guide {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: #ffe0a3;
+  --guide-x: 0px;
+  --guide-y: 0px;
+  --guide-angle: 0deg;
+  --guide-length: 32px;
+}
+
+.guide-ring, .guide-line {
+  position: absolute;
+  top: var(--guide-y);
+  left: var(--guide-x);
+}
+
+.guide-ring {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1.5px solid #fff1c9;
+  box-shadow: 0 0 8px #44220694, inset 0 0 7px #ffe0a340;
+  transform: translate(-50%, -50%);
+  animation: glow 1.9s ease-in-out infinite;
+}
+
+.guide-line {
+  width: var(--guide-length);
+  height: 1.5px;
+  background: linear-gradient(90deg, #ffebb98c, #fff1c9);
+  box-shadow: 0 0 7px #4e2819a8;
+  transform: translateY(-50%) rotate(var(--guide-angle));
+  transform-origin: 0 50%;
+}
+
+.guide-line::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  position: absolute;
+  right: 0;
+  top: -3px;
+  border-top: 1.5px solid;
+  border-right: 1.5px solid;
+  transform: rotate(45deg);
+}
+
+@keyframes glow {
+  50% { opacity: .7; transform: translate(-50%, -50%) scale(1.17); }
+}
+
+.foot {
+  position: absolute;
+  inset: auto 0 0;
+  display: grid;
+  justify-items: center;
+  padding: 30px 16px max(22px, calc(env(safe-area-inset-bottom) + 10px));
+  background: linear-gradient(transparent, #22130b78 82%, #20130c96);
+  pointer-events: none;
+}
+
+.instruction, .reaction {
+  margin: 0;
+  padding: 9px 15px;
+  background: #261a12ed;
+  border: 1px solid #f1c58a51;
+  box-shadow: 0 4px 12px #3b200b33;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.48;
+}
+
+.reaction {
+  width: min(100%, 335px);
+  padding: 13px;
+  pointer-events: auto;
+}
+
+.reaction p { margin: 0 0 10px; }
+.reaction button {
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  border-radius: 4px;
+  background: #f1d6a9;
+  color: #291b12;
+  letter-spacing: .05em;
+}
+
+@media (max-height: 610px) {
+  .order { top: max(12px, env(safe-area-inset-top)); left: 16px; }
+  .foot { padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-ring { animation: none; }
+}
