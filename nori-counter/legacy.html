@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#19120e">
+  <meta name="description" content="当一晚寿司主厨，挑选当日鱼料，逐道做完十六道 Omakase。">
+  <title>海苔小摊</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css?v=3">
+  <script defer src="rules.js?v=3"></script>
+  <script defer src="game.js?v=3"></script>
+</head>
+<body>
+  <main id="app" class="app" data-view="home">
+    <header class="masthead">
+      <h1>海苔小摊</h1>
+      <div class="mast-actions">
+        <span id="position"></span>
+        <button class="pause" type="button" data-action="pause" id="pause" aria-label="暂停" hidden><span aria-hidden="true"></span></button>
+      </div>
+    </header>
+    <section id="home" class="screen home" aria-label="选择晚席"></section>
+    <section id="shift" class="screen shift" aria-label="寿司吧台" hidden>
+      <div id="phase" class="phase" aria-label="出品进度"></div>
+      <section id="scene" class="scene" aria-label="制作与成品预览"></section>
+      <section id="controls" class="controls" aria-label="当前操作"></section>
+    </section>
+    <section id="report" class="screen report" aria-label="收席评价" hidden></section>
+    <p id="announcement" class="sr-only" role="status"></p>
+    <p id="save-notice" class="save-notice" hidden>此浏览器无法保留进度</p>
+    <noscript>开启 JavaScript 后即可营业。</noscript>
+  </main>
+  <dialog id="pause-menu" aria-labelledby="pause-title">
+    <h2 id="pause-title">晚席暂停</h2>
+    <button class="primary" type="button" data-action="continue" autofocus>继续制作</button>
+    <button class="secondary" type="button" data-action="home">返回选席</button>
+  </dialog>
+</body>
+</html>

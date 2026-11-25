@@ -476,7 +476,9 @@ function unavailable(){
   instruction.hidden=false;
   instruction.replaceChildren('当前浏览器无法开启 3D 吧台。可以重载，或玩 ');
   const previous=document.createElement('a');
-  previous.className='fallback';previous.href='../';previous.textContent='原版晚席';
+  previous.className='fallback';
+  previous.href=new URL('../legacy.html',import.meta.url).href;
+  previous.textContent='原版晚席';
   instruction.append(previous);
   instruction.style.pointerEvents='auto';
 }
