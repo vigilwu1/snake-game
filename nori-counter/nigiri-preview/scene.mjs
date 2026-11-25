@@ -430,3 +430,6 @@ export function makeCounter(canvas, onResize, onContextLost) {
   texturesReady.then(render);
   return { newRecipe, updateRice, updateFish, updatePlate, point, hit, project };
 }
+
+// Shared meshes for the full 3D counter.
+export { material, makeMesh, box, makePlate, makeContactShadow, makeRice, makePiece, plateTopAt };

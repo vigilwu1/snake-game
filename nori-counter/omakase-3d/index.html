@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#20150e">
+  <meta name="description" content="在 3D 寿司吧台切鱼、握寿司、炙烧。从整块鱼料做到一席二十道 Omakase。">
+  <title>海苔小摊 · 3D 晚席</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./counter.css">
+</head>
+<body>
+  <main id="counter" class="counter" aria-label="海苔小摊 3D 晚席">
+    <div class="diner" aria-hidden="true"></div>
+    <canvas id="table" aria-label="料理吧台" aria-describedby="instruction"></canvas>
+    <header id="order" class="order" hidden>
+      <div class="order-copy">
+        <p id="progress" class="brand"></p>
+        <h1 id="dish"></h1>
+        <p id="guest" class="portion"></p>
+        <div id="plates" class="plates" aria-label="同台菜品"></div>
+      </div>
+      <button id="pause" class="icon" type="button" aria-label="暂停"><i aria-hidden="true"></i></button>
+    </header>
+    <div id="guide" class="guide" aria-hidden="true" hidden><i></i><span></span></div>
+    <div class="foot">
+      <p id="instruction" class="instruction" role="status">正在准备吧台…</p>
+      <section id="reaction" class="reaction" aria-label="客人反馈" hidden>
+        <p id="response" role="status"></p>
+        <button id="next" type="button">下一道</button>
+      </section>
+    </div>
+
+    <section id="home" class="overlay" aria-label="选席" hidden>
+      <div class="menu">
+        <div class="menu-head">
+          <p class="brand">今夜营业</p>
+          <h1>海苔小摊</h1>
+          <p>二十道 Omakase · 亲手切付、合握、炙烧</p>
+        </div>
+        <div id="seats" class="seats"></div>
+        <div class="menu-options">
+          <button type="button" data-menu="rehearsal">六道短席</button>
+          <button type="button" data-menu="practice">切付练习</button>
+          <button id="sound-home" type="button" aria-pressed="false">声音关</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="receipt" class="overlay" aria-label="收席" hidden>
+      <div class="menu receipt">
+        <p class="brand" id="receipt-seat"></p>
+        <h1 id="receipt-title"></h1>
+        <div id="receipt-notes" class="receipt-notes"></div>
+        <ol id="receipt-dishes" aria-label="上菜顺序"></ol>
+        <button id="back" class="primary" type="button">回到选席</button>
+      </div>
+    </section>
+
+    <dialog id="pause-menu" aria-labelledby="pause-title">
+      <h2 id="pause-title">晚席暂停</h2>
+      <button id="resume" class="primary" type="button" autofocus>继续做菜</button>
+      <button id="sound-pause" class="secondary" type="button" aria-pressed="false">声音关</button>
+      <button id="to-home" class="secondary" type="button">返回选席</button>
+    </dialog>
+    <noscript><p>开启 JavaScript 后即可营业。</p></noscript>
+  </main>
+  <script type="module" src="./counter.mjs"></script>
+</body>
+</html>
